@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Title Text -->
+    <TextView
+        android:id="@+id/logcatTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Logcat Logs"
+        android:textSize="20sp"
+        android:padding="16dp"
+        android:layout_gravity="start|top" />
+
+    <!-- RecyclerView for logs -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/logRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="56dp" />
+
+    <!-- Copy Button -->
+    <Button
+        android:id="@+id/copyLogsButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Copy Logs"
+        android:layout_gravity="end|top"
+        android:layout_margin="8dp" />
+
+    <!-- Return Button -->
+    <Button
+        android:id="@+id/returnButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Return"
+        android:layout_gravity="start|top"
+        android:layout_margin="8dp" />
+</FrameLayout>

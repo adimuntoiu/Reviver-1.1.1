@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Reviver</string>
+    <string name="accessibility_service_description">This service helps monitor app usage.</string>
+</resources>
