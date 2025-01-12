@@ -28,13 +28,4 @@
         android:text="Copy Logs"
         android:layout_gravity="end|top"
         android:layout_margin="8dp" />
-
-    <!-- Return Button -->
-    <Button
-        android:id="@+id/returnButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Return"
-        android:layout_gravity="start|top"
-        android:layout_margin="8dp" />
 </FrameLayout>

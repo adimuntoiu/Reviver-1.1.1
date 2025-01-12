@@ -1,27 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:padding="16dp">
 
-    <!-- Button to go back to the main page -->
+    <!-- Back to Main Button -->
     <Button
-        android:id="@+id/returnButton"
+        android:id="@+id/backToMainButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Back to Main"
         android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
-        android:layout_margin="16dp" />
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp" />
 
-    <!-- TextView for displaying logs -->
+    <!-- Copy Logs Button -->
+    <Button
+        android:id="@+id/copyLogsButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Copy Logs"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp" />
+
+    <!-- Log Text View -->
     <TextView
         android:id="@+id/logTextView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/returnButton"
+        android:layout_below="@id/backToMainButton"
+        android:layout_marginTop="8dp"
         android:padding="16dp"
-        android:textSize="14sp"
-        android:textColor="#000000"
+        android:scrollbars="vertical"
         android:background="#FFFFFF"
-        android:scrollbars="vertical" />
+        android:textColor="#000000"
+        android:textSize="14sp"
+        android:overScrollMode="always"
+        android:scrollHorizontally="false"/>
 </RelativeLayout>
