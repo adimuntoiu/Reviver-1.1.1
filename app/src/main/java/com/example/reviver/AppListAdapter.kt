@@ -7,15 +7,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
 
 class AppListAdapter(
     private val context: Context,
-    private val appList: List<Pair<String, Drawable>>
+    private val appList: List<AppDetails>
 ) : RecyclerView.Adapter<AppListAdapter.AppViewHolder>() {
 
-    var onAppSelected: ((Int) -> Unit)? = null // Callback for item clicks
+    var onAppSelected: ((AppDetails) -> Unit)? = null // Callback for item clicks
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
         val view = LayoutInflater.from(context).inflate(R.layout.app_item, parent, false)
@@ -23,12 +22,14 @@ class AppListAdapter(
     }
 
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
-        val app = appList[position]
-        holder.appName.text = app.first
-        holder.appIcon.setImageDrawable(app.second)
+        val appDetails = appList[position]
+        holder.appName.text = appDetails.appName
+        holder.appIcon.setImageDrawable(context.packageManager.getApplicationIcon(appDetails.packageName))
+        //  holder.timeLimit.text = "Time Limit: ${appDetails.timeLimit} mins"
+        //  holder.mode.text = "Mode: ${appDetails.mode}"
 
         holder.itemView.setOnClickListener {
-            onAppSelected?.invoke(position)
+            onAppSelected?.invoke(appDetails)
         }
     }
 
@@ -37,5 +38,7 @@ class AppListAdapter(
     class AppViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val appIcon: ImageView = itemView.findViewById(R.id.appIcon)
         val appName: TextView = itemView.findViewById(R.id.appName)
+        // val timeLimit: TextView = itemView.findViewById(R.id.timeLimit)
+        // val mode: TextView = itemView.findViewById(R.id.mode)
     }
 }

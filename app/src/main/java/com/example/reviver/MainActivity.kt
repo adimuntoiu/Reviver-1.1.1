@@ -1,6 +1,7 @@
 package com.example.reviver
 
 import android.app.AppOpsManager
+import android.content.pm.ApplicationInfo
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -11,13 +12,14 @@ import android.graphics.drawable.Drawable
 import androidx.appcompat.app.AppCompatActivity
 import android.net.Uri
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
 class MainActivity : AppCompatActivity() {
-    private val selectedAppsFile = "selected_apps.json" // File to store selected apps
+    private val selectedApps = mutableListOf<AppDetails>() // List of selected apps
     private val appListContainer: LinearLayout by lazy {
         findViewById(R.id.appListContainer)
     }
@@ -27,12 +29,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         checkAndRequestOverlayPermission()
-        // Check and request Usage Stats permission
+
         if (!hasUsageStatsPermission()) {
             requestUsageStatsPermission()
         } else {
             startMonitoringService()
         }
+
+        loadSelectedApps()
 
         val viewLogsButton: Button = findViewById(R.id.viewLogsButton)
         viewLogsButton.setOnClickListener {
@@ -46,58 +50,84 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     private fun showAppSelectionDialog() {
         val packageManager = packageManager
         val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
 
-        // Create lists to store app details
-        val appNames = mutableListOf<String>()
-        val appIcons = mutableListOf<Drawable>()
-        val appPackages = mutableListOf<String>()
-
-        // Filter and add non-system apps to the list
-        for (app in installedApps) {
+        val appItems = installedApps.mapNotNull { app ->
             if (packageManager.getLaunchIntentForPackage(app.packageName) != null) {
-                appNames.add(app.loadLabel(packageManager).toString())
-                appIcons.add(app.loadIcon(packageManager))
-                appPackages.add(app.packageName)
-            }
+                AppDetails(
+                    packageName = app.packageName,
+                    appName = app.loadLabel(packageManager).toString(),
+                    timeLimit = 0, // Default time limit
+                    mode = "None" // Default mode
+                )
+            } else null
         }
 
-        val appItems = appNames.zip(appIcons) // Combine names and icons
+        if (appItems.isEmpty()) {
+            Toast.makeText(this, "No apps available to add.", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Choose an app")
 
-        // Create RecyclerView programmatically
         val recyclerView = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
         }
 
-        // Create the adapter and set it to the RecyclerView
         val appListAdapter = AppListAdapter(this, appItems).apply {
-            onAppSelected = { selectedIndex ->
-                val selectedAppName = appNames[selectedIndex]
-                val selectedAppIcon = appIcons[selectedIndex]
-                val selectedPackage = appPackages[selectedIndex]
-
-                addAppToMainLayout(selectedAppName, selectedAppIcon)
-                saveSelectedApp(selectedPackage, selectedAppName)
-
-                // Dismiss the dialog after selection
+            onAppSelected = { selectedApp ->
+                if (isAppAlreadySelected(selectedApp.packageName)) {
+                    Toast.makeText(this@MainActivity, "App already added!", Toast.LENGTH_SHORT).show()
+                } else {
+                    showAppDetailsDialog(selectedApp)
+                }
                 builder.create().dismiss()
             }
         }
         recyclerView.adapter = appListAdapter
 
-        // Set the RecyclerView in the dialog
         builder.setView(recyclerView)
         builder.create().show()
     }
 
-    private fun addAppToMainLayout(appName: String, appIcon: Drawable) {
-        // Create a new layout to display the app details
+    private fun showAppDetailsDialog(appDetails: AppDetails) {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Set Details for ${appDetails.appName}")
+
+        val dialogLayout = layoutInflater.inflate(R.layout.app_details_dialog, null)
+        val timeLimitInput = dialogLayout.findViewById<EditText>(R.id.timeLimitInput)
+        val modeSpinner = dialogLayout.findViewById<Spinner>(R.id.modeSpinner)
+
+        ArrayAdapter.createFromResource(
+            this,
+            R.array.modes_array,
+            android.R.layout.simple_spinner_item
+        ).also { adapter ->
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            modeSpinner.adapter = adapter
+        }
+
+        builder.setView(dialogLayout)
+
+        builder.setPositiveButton("Add") { _, _ ->
+            val timeLimit = timeLimitInput.text.toString().toIntOrNull() ?: 0
+            val mode = modeSpinner.selectedItem.toString()
+
+            val updatedAppDetails = appDetails.copy(timeLimit = timeLimit, mode = mode)
+            selectedApps.add(updatedAppDetails)
+
+            saveSelectedApps()
+            addAppToMainLayout(updatedAppDetails)
+        }
+
+        builder.setNegativeButton("Cancel", null)
+        builder.create().show()
+    }
+
+    private fun addAppToMainLayout(appDetails: AppDetails) {
         val appItemView = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -109,14 +139,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         val iconView = ImageView(this).apply {
-            setImageDrawable(appIcon)
+            setImageDrawable(packageManager.getApplicationIcon(appDetails.packageName))
             layoutParams = LinearLayout.LayoutParams(100, 100).apply {
                 marginEnd = 16
             }
         }
 
         val nameView = TextView(this).apply {
-            text = appName
+            text = "${appDetails.appName} (Limit: ${appDetails.timeLimit} mins, Mode: ${appDetails.mode})"
             textSize = 16f
         }
 
@@ -126,35 +156,45 @@ class MainActivity : AppCompatActivity() {
         appListContainer.addView(appItemView)
     }
 
-
-    private fun saveSelectedApp(packageName: String, appName: String) {
-        // Save the app details (e.g., to a file or shared preferences)
+    private fun saveSelectedApps() {
         val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
-        editor.putString(packageName, appName)
+
+        val jsonArray = JSONArray()
+        for (app in selectedApps) {
+            val jsonObject = JSONObject()
+            jsonObject.put("packageName", app.packageName)
+            jsonObject.put("name", app.appName)
+            jsonObject.put("timeLimit", app.timeLimit)
+            jsonObject.put("mode", app.mode)
+            jsonArray.put(jsonObject)
+        }
+
+        editor.putString("selectedApps", jsonArray.toString())
         editor.apply()
     }
 
     private fun loadSelectedApps() {
-        val file = File(filesDir, selectedAppsFile)
-        if (!file.exists()) return
+        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        val json = sharedPreferences.getString("selectedApps", null)
 
-        val jsonArray = JSONArray(file.readText())
-        val packageManager = packageManager
+        if (json != null) {
+            val jsonArray = JSONArray(json)
+            selectedApps.clear()
 
-        for (i in 0 until jsonArray.length()) {
-            val appData = jsonArray.getJSONObject(i)
-            val appName = appData.getString("appName")
-            val packageName = appData.getString("packageName")
-
-            val appIcon = try {
-                packageManager.getApplicationIcon(packageName)
-            } catch (e: PackageManager.NameNotFoundException) {
-                null
+            for (i in 0 until jsonArray.length()) {
+                val jsonObject = jsonArray.getJSONObject(i)
+                val app = AppDetails(
+                    packageName = jsonObject.getString("packageName"),
+                    appName = jsonObject.getString("name"),
+                    timeLimit = jsonObject.getInt("timeLimit"),
+                    mode = jsonObject.getString("mode")
+                )
+                selectedApps.add(app)
             }
 
-            if (appIcon != null) {
-                addAppToMainLayout(appName, appIcon)
+            for (app in selectedApps) {
+                addAppToMainLayout(app)
             }
         }
     }
@@ -193,9 +233,13 @@ class MainActivity : AppCompatActivity() {
         val serviceIntent = Intent(this, MonitoringService::class.java)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
-        } else {
+        } else
+        {
             startService(serviceIntent)
         }
-        Toast.makeText(this, "Monitoring Service Started", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun isAppAlreadySelected(packageName: String): Boolean {
+        return selectedApps.any { it.packageName == packageName }
     }
 }

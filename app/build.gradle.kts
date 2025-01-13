@@ -7,6 +7,9 @@ android {
     namespace = "com.example.reviver"
     compileSdk = 34
 
+    dependencies{
+        implementation("com.google.code.gson:gson:2.10")
+    }
     defaultConfig {
         applicationId = "com.example.reviver"
         minSdk = 24
