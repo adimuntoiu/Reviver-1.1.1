@@ -21,8 +21,10 @@ class MonitoringService : Service() {
     private var lastPackageStartTime: Long = 0L
     private val handler = Handler(Looper.getMainLooper())
     private val interval: Long = 1000 // 1 second for monitoring
-    private val timeLimit: Long = 20 // 1 minute time limit
+    private val timeLimit: Long = 20 // 20 seconds time limit
     private lateinit var overlay: Overlay
+    private val monitoredApps = mutableSetOf<String>() // List of apps to monitor
+
 
     override fun onCreate() {
         overlay = Overlay(this)
@@ -32,9 +34,22 @@ class MonitoringService : Service() {
         startForegroundServiceWithNotification()
 
         // Start the monitoring task
-        handler.post(monitorTask)
+        // handler.post(monitorTask)
     }
 
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Retrieve the list of monitored apps passed from MainActivity
+        intent?.getStringArrayListExtra("monitoredApps")?.let {
+            monitoredApps.clear()
+            monitoredApps.addAll(it)
+        }
+
+        // Start the monitoring task
+        handler.post(monitorTask)
+
+        return START_STICKY
+    }
     private fun startForegroundServiceWithNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelId = "monitoring_service"
@@ -75,14 +90,11 @@ class MonitoringService : Service() {
         Log.d("AppMonitoring", "Current package: $lastPackageName, Elapsed time: $elapsedTime seconds")
 
         if (lastPackageName != null &&
-            lastPackageName != "com.google.android.apps.nexuslauncher" &&
-            lastPackageName != "com.google.android.dialer" &&
-            lastPackageName != "com.example.reviver") {
+            monitoredApps.contains(lastPackageName) &&
+            lastPackageName != "com.google.android.apps.nexuslauncher") {
             if (elapsedTime >= timeLimit) {
                 Log.d("AppMonitoring", "Time limit exceeded for $lastPackageName")
-                showOverlayMessage("Hello from Reviver!")
-                /// triggerOverlay()
-                // Reset the start time but keep lastPackageName
+                showOverlayMessage()
                 lastPackageStartTime = System.currentTimeMillis()
             }
         }
@@ -110,13 +122,13 @@ class MonitoringService : Service() {
     }
 
 
-    private fun showOverlayMessage(message: String) {
+    private fun showOverlayMessage() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Log.e("MonitoringService", "Overlay permission is not granted")
             // Optionally notify the user or take alternative action
             return
         }
-        overlay.showOverlay("salut")
+        overlay.showOverlay("Time limit has been reached. Please take a break.")
         Log.d("MonitoringService", "Overlay is displayed")
     }
 
@@ -128,6 +140,7 @@ class MonitoringService : Service() {
     override fun onBind(intent: Intent?): IBinder? {
         return null // No binding
     }
+    /*
     private fun triggerOverlay() {
         val overlay = Overlay(this)
         overlay.showOverlay("salut")
@@ -137,5 +150,5 @@ class MonitoringService : Service() {
             ///overlay.hideOverlay()
         }, 5000) // 5 seconds delay
     }
-
+    */
 }

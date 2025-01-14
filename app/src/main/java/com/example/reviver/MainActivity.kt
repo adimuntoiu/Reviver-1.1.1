@@ -54,8 +54,10 @@ class MainActivity : AppCompatActivity() {
         val packageManager = packageManager
         val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
 
+        // Filter only launchable apps (apps with a launcher intent)
         val appItems = installedApps.mapNotNull { app ->
-            if (packageManager.getLaunchIntentForPackage(app.packageName) != null) {
+            val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
+            if (launchIntent != null) { // Only apps with a launcher intent are included
                 AppDetails(
                     packageName = app.packageName,
                     appName = app.loadLabel(packageManager).toString(),
@@ -150,10 +152,23 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
         }
 
+        val removeButton = Button(this).apply {
+            text = "Remove"
+            setOnClickListener {
+                removeApp(appDetails)
+                appListContainer.removeView(appItemView)
+            }
+        }
+
         appItemView.addView(iconView)
         appItemView.addView(nameView)
+        appItemView.addView(removeButton)
 
         appListContainer.addView(appItemView)
+    }
+    private fun removeApp(appDetails: AppDetails) {
+        selectedApps.removeIf { it.packageName == appDetails.packageName }
+        saveSelectedApps()
     }
 
     private fun saveSelectedApps() {
@@ -231,10 +246,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun startMonitoringService() {
         val serviceIntent = Intent(this, MonitoringService::class.java)
+        serviceIntent.putStringArrayListExtra(
+            "monitoredApps",
+            ArrayList(selectedApps.map { it.packageName })
+
+        )
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
-        } else
-        {
+        } else {
             startService(serviceIntent)
         }
     }
