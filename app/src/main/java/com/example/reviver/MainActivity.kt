@@ -18,6 +18,11 @@ import java.io.File
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.view.LayoutInflater
+import android.view.View
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+
 
 class MainActivity : AppCompatActivity() {
     private val selectedApps = mutableListOf<AppDetails>() // List of selected apps
@@ -89,12 +94,88 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showAppSelectionDialog() {
-        val intent = Intent(Intent.ACTION_PICK_ACTIVITY).apply {
-            type = null
-            putExtra(Intent.EXTRA_INTENT, Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
+        val packageManager = packageManager
+        val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA).mapNotNull { app ->
+            if (packageManager.getLaunchIntentForPackage(app.packageName) != null) {
+                AppDetails(
+                    packageName = app.packageName,
+                    appName = app.loadLabel(packageManager).toString(),
+                    timeLimit = 0,
+                    mode = "None"
+                )
+            } else null
         }
-        startActivityForResult(intent, APP_PICKER_REQUEST_CODE)
+
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Choose an app")
+
+        val recyclerView = RecyclerView(this).apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+        }
+
+        val appListAdapter = AppListAdapter(this, installedApps).apply {
+            onAppSelected = { selectedApp ->
+                if (!isAppAlreadySelected(selectedApp.packageName)) {
+                    showAppDetailsDialog(selectedApp)
+                } else {
+                    Toast.makeText(this@MainActivity, "App already added!", Toast.LENGTH_SHORT).show()
+                }
+                builder.create().dismiss()
+            }
+        }
+        recyclerView.adapter = appListAdapter
+
+        builder.setView(recyclerView)
+        builder.setCancelable(true) // Allow dialog dismissal by clicking outside
+        builder.create().show()
     }
+
+    private fun editAppDetailsDialog(appDetails: AppDetails, appItemView: ConstraintLayout) {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Edit Details for ${appDetails.appName}")
+
+        val dialogLayout = LayoutInflater.from(this).inflate(R.layout.app_details_dialog, null)
+        val timeLimitInput = dialogLayout.findViewById<EditText>(R.id.timeLimitInput)
+        val modeSpinner = dialogLayout.findViewById<Spinner>(R.id.modeSpinner)
+
+        timeLimitInput.setText(appDetails.timeLimit.toString())
+
+        ArrayAdapter.createFromResource(
+            this,
+            R.array.modes_array,
+            android.R.layout.simple_spinner_item
+        ).also { adapter ->
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            modeSpinner.adapter = adapter
+        }
+        modeSpinner.setSelection(resources.getStringArray(R.array.modes_array).indexOf(appDetails.mode))
+
+        builder.setView(dialogLayout)
+
+        builder.setPositiveButton("Save") { _, _ ->
+            val timeLimit = timeLimitInput.text.toString().toIntOrNull() ?: 0
+            val mode = modeSpinner.selectedItem.toString()
+
+            // Update the app details
+            appDetails.timeLimit = timeLimit
+            appDetails.mode = mode
+
+            // Update the layout text
+            (appItemView.getChildAt(1) as TextView).text =
+                "${appDetails.appName} (Limit: ${appDetails.timeLimit} mins, Mode: ${appDetails.mode})"
+
+            saveSelectedApps()
+        }
+
+        builder.setNegativeButton("Remove") { _, _ ->
+            removeApp(appDetails)
+            appListContainer.removeView(appItemView)
+        }
+
+        builder.setNeutralButton("Cancel", null)
+        builder.create().show()
+    }
+
 
     /**
      * Handles the app picker result
@@ -136,48 +217,94 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun addAppToMainLayout(appDetails: AppDetails) {
-        val appItemView = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+        val appItemView = ConstraintLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(0, 16, 0, 16)
+                setMargins(16, 16, 16, 16) // Increased margins
             }
         }
 
+        // App Icon
         val iconView = ImageView(this).apply {
+            id = View.generateViewId()
             setImageDrawable(packageManager.getApplicationIcon(appDetails.packageName))
-            layoutParams = LinearLayout.LayoutParams(100, 100).apply {
-                marginEnd = 16
+            layoutParams = LayoutParams(120, 120).apply {
+                marginEnd = 16 // Add margin between icon and text
             }
         }
+        appItemView.addView(iconView)
 
-
+        // App Name
         val nameView = TextView(this).apply {
-            text = "${appDetails.appName} (Limit: ${appDetails.timeLimit} mins, Mode: ${appDetails.mode})"
+            id = View.generateViewId()
+            text = "${appDetails.appName}"
             textSize = 16f
+            maxLines = 2 // Allow text to wrap up to two lines
+            ellipsize = android.text.TextUtils.TruncateAt.END // Add "..." if the text is too long
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = 16 // Add margin between text and button
+            }
         }
+        appItemView.addView(nameView)
 
+        // App settings
+        val settingsView = TextView(this).apply {
+            id = View.generateViewId()
+            text = "Limit: ${appDetails.timeLimit} seconds, Mode: ${appDetails.mode}" // Show settings here
+            textSize = 14f
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 8
+            }
+        }
+        appItemView.addView(settingsView)
+
+        // Remove Button
         val removeButton = Button(this).apply {
+            id = View.generateViewId()
             text = "Remove"
             setOnClickListener {
                 removeApp(appDetails)
                 appListContainer.removeView(appItemView)
             }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+            layoutParams = LayoutParams(
+                LayoutParams.WRAP_CONTENT,
+                LayoutParams.WRAP_CONTENT
             )
         }
-
-
-        appItemView.addView(iconView)
-        appItemView.addView(nameView)
         appItemView.addView(removeButton)
+
+        // Set layout constraints
+        (iconView.layoutParams as LayoutParams).apply {
+            startToStart = LayoutParams.PARENT_ID
+            topToTop = LayoutParams.PARENT_ID
+            bottomToBottom = LayoutParams.PARENT_ID
+        }
+        (nameView.layoutParams as LayoutParams).apply {
+            startToEnd = iconView.id
+            topToTop = LayoutParams.PARENT_ID
+            endToStart = removeButton.id
+        }
+        (settingsView.layoutParams as LayoutParams).apply {
+            startToEnd = iconView.id
+            topToBottom = nameView.id
+            endToStart = removeButton.id
+        }
+        (removeButton.layoutParams as LayoutParams).apply {
+            endToEnd = LayoutParams.PARENT_ID
+            topToTop = LayoutParams.PARENT_ID
+            bottomToBottom = LayoutParams.PARENT_ID
+        }
+
+        appItemView.setOnClickListener {
+            editAppDetailsDialog(appDetails, appItemView)
+        }
 
         appListContainer.addView(appItemView)
     }
+
+
     private fun removeApp(appDetails: AppDetails) {
         selectedApps.removeIf { it.packageName == appDetails.packageName }
         saveSelectedApps()
