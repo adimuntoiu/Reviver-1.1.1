@@ -14,6 +14,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import android.provider.Settings
+import org.json.JSONArray
 
 class MonitoringService : Service() {
 
@@ -35,10 +36,26 @@ class MonitoringService : Service() {
 
         // Start the monitoring task
         // handler.post(monitorTask)
+        loadMonitoredApps()
     }
 
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Retrieve the list of monitored apps passed from MainActivity
+        /*intent?.getStringArrayListExtra("monitoredApps")?.let {
+            monitoredApps.clear()
+            monitoredApps.addAll(it)
+        }
+
+        Log.d("MonitoringService", "Received monitored apps: $monitoredApps") // Debug log
+
+        // Start the monitoring task
+        */
+        handler.post(monitorTask)
+
+        return START_STICKY
+    }
+
+    /*override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Retrieve the list of monitored apps passed from MainActivity
         intent?.getStringArrayListExtra("monitoredApps")?.let {
             monitoredApps.clear()
@@ -50,6 +67,7 @@ class MonitoringService : Service() {
 
         return START_STICKY
     }
+     */
     private fun startForegroundServiceWithNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelId = "monitoring_service"
@@ -130,6 +148,29 @@ class MonitoringService : Service() {
         }
         overlay.showOverlay("Time limit has been reached. Please take a break.")
         Log.d("MonitoringService", "Overlay is displayed")
+    }
+    private fun loadMonitoredApps() {
+        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        val json = sharedPreferences.getString("selectedApps", null)
+
+        if (json != null) {
+            try {
+                val jsonArray = JSONArray(json)
+                monitoredApps.clear()
+
+                for (i in 0 until jsonArray.length()) {
+                    val jsonObject = jsonArray.getJSONObject(i)
+                    val packageName = jsonObject.getString("packageName")
+                    monitoredApps.add(packageName)
+                }
+
+                Log.d("MonitoringService", "Loaded monitored apps: $monitoredApps") // Debug log
+            } catch (e: Exception) {
+                Log.e("MonitoringService", "Failed to parse monitored apps", e)
+            }
+        } else {
+            Log.d("MonitoringService", "No monitored apps found in SharedPreferences")
+        }
     }
 
     override fun onDestroy() {
