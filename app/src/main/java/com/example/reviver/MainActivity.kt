@@ -59,6 +59,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showAppSelectionDialog() {
+        val intent = Intent(Intent.ACTION_PICK_ACTIVITY).apply {
+            type = null
+            putExtra(Intent.EXTRA_INTENT, Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
+        }
+        startActivityForResult(intent, APP_PICKER_REQUEST_CODE)
+    }
+
+
     private fun showAppDetailsDialog(appDetails: AppDetails) {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Set Details for ${appDetails.appName}")
@@ -93,42 +102,6 @@ class MainActivity : AppCompatActivity() {
         builder.create().show()
     }
 
-    private fun showAppSelectionDialog() {
-        val packageManager = packageManager
-        val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA).mapNotNull { app ->
-            if (packageManager.getLaunchIntentForPackage(app.packageName) != null) {
-                AppDetails(
-                    packageName = app.packageName,
-                    appName = app.loadLabel(packageManager).toString(),
-                    timeLimit = 0,
-                    mode = "None"
-                )
-            } else null
-        }
-
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("Choose an app")
-
-        val recyclerView = RecyclerView(this).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-        }
-
-        val appListAdapter = AppListAdapter(this, installedApps).apply {
-            onAppSelected = { selectedApp ->
-                if (!isAppAlreadySelected(selectedApp.packageName)) {
-                    showAppDetailsDialog(selectedApp)
-                } else {
-                    Toast.makeText(this@MainActivity, "App already added!", Toast.LENGTH_SHORT).show()
-                }
-                builder.create().dismiss()
-            }
-        }
-        recyclerView.adapter = appListAdapter
-
-        builder.setView(recyclerView)
-        builder.setCancelable(true) // Allow dialog dismissal by clicking outside
-        builder.create().show()
-    }
 
     private fun editAppDetailsDialog(appDetails: AppDetails, appItemView: ConstraintLayout) {
         val builder = AlertDialog.Builder(this)
@@ -184,33 +157,26 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
 
         if (requestCode == APP_PICKER_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
-            val selectedComponent = data.component
-            val selectedPackage = selectedComponent?.packageName
+            val selectedPackage = data.component?.packageName
             val packageManager = packageManager
 
             if (selectedPackage != null) {
-                try {
-                    val appName = packageManager.getApplicationLabel(
-                        packageManager.getApplicationInfo(selectedPackage, 0)
-                    ).toString()
-                    val appIcon = packageManager.getApplicationIcon(selectedPackage)
+                val appName = packageManager.getApplicationLabel(packageManager.getApplicationInfo(selectedPackage, 0)).toString()
+                val appIcon = packageManager.getApplicationIcon(selectedPackage)
 
-                    val appDetails = AppDetails(
-                        packageName = selectedPackage,
-                        appName = appName,
-                        timeLimit = 0,
-                        mode = "None"
-                    )
+                val appDetails = AppDetails(
+                    packageName = selectedPackage,
+                    appName = appName,
+                    timeLimit = 0,
+                    mode = "None"
+                )
 
-                    if (!isAppAlreadySelected(selectedPackage)) {
-                        selectedApps.add(appDetails)
-                        saveSelectedApps()
-                        addAppToMainLayout(appDetails)
-                    } else {
-                        Toast.makeText(this, "App already added!", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (e: PackageManager.NameNotFoundException) {
-                    Toast.makeText(this, "Failed to retrieve app details.", Toast.LENGTH_SHORT).show()
+                if (!isAppAlreadySelected(selectedPackage)) {
+                    selectedApps.add(appDetails)
+                    saveSelectedApps()
+                    addAppToMainLayout(appDetails)
+                } else {
+                    Toast.makeText(this, "App already added!", Toast.LENGTH_SHORT).show()
                 }
             }
         }

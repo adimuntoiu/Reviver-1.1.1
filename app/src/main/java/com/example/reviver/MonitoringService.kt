@@ -40,34 +40,9 @@ class MonitoringService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Retrieve the list of monitored apps passed from MainActivity
-        /*intent?.getStringArrayListExtra("monitoredApps")?.let {
-            monitoredApps.clear()
-            monitoredApps.addAll(it)
-        }
-
-        Log.d("MonitoringService", "Received monitored apps: $monitoredApps") // Debug log
-
-        // Start the monitoring task
-        */
         handler.post(monitorTask)
-
         return START_STICKY
     }
-
-    /*override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Retrieve the list of monitored apps passed from MainActivity
-        intent?.getStringArrayListExtra("monitoredApps")?.let {
-            monitoredApps.clear()
-            monitoredApps.addAll(it)
-        }
-
-        // Start the monitoring task
-        handler.post(monitorTask)
-
-        return START_STICKY
-    }
-     */
     private fun startForegroundServiceWithNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelId = "monitoring_service"
@@ -92,6 +67,7 @@ class MonitoringService : Service() {
             handler.postDelayed(this, interval) // Re-run every 1 second
         }
     }
+
 
     private fun monitorAppUsage() {
         val currentPackageName = getLastUsedApp()
@@ -181,15 +157,4 @@ class MonitoringService : Service() {
     override fun onBind(intent: Intent?): IBinder? {
         return null // No binding
     }
-    /*
-    private fun triggerOverlay() {
-        val overlay = Overlay(this)
-        overlay.showOverlay("salut")
-
-        // Hide the overlay after a few seconds if needed
-        Handler(Looper.getMainLooper()).postDelayed({
-            ///overlay.hideOverlay()
-        }, 5000) // 5 seconds delay
-    }
-    */
 }
