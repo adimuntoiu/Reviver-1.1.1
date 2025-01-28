@@ -24,50 +24,22 @@ class MonitoringService : Service() {
     private val interval: Long = 1000 // 1 second for monitoring
     private val timeLimit: Long = 20 // 20 seconds time limit
     private lateinit var overlay: Overlay
-    private val monitoredApps = mutableSetOf<String>() // List of apps to monitor
+    private val monitoredApps = mutableMapOf<String, Long>() // List of apps to monitor
 
 
     override fun onCreate() {
         overlay = Overlay(this)
         super.onCreate()
-
-        // Ensure startForeground() is called immediately
         startForegroundServiceWithNotification()
-
-        // Start the monitoring task
-        // handler.post(monitorTask)
         loadMonitoredApps()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Retrieve the list of monitored apps passed from MainActivity
-        /*intent?.getStringArrayListExtra("monitoredApps")?.let {
-            monitoredApps.clear()
-            monitoredApps.addAll(it)
-        }
-
-        Log.d("MonitoringService", "Received monitored apps: $monitoredApps") // Debug log
-
-        // Start the monitoring task
-        */
         handler.post(monitorTask)
 
         return START_STICKY
     }
 
-    /*override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Retrieve the list of monitored apps passed from MainActivity
-        intent?.getStringArrayListExtra("monitoredApps")?.let {
-            monitoredApps.clear()
-            monitoredApps.addAll(it)
-        }
-
-        // Start the monitoring task
-        handler.post(monitorTask)
-
-        return START_STICKY
-    }
-     */
     private fun startForegroundServiceWithNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelId = "monitoring_service"
@@ -96,24 +68,25 @@ class MonitoringService : Service() {
     private fun monitorAppUsage() {
         val currentPackageName = getLastUsedApp()
 
-        // If the app has changed, reset the timer
-        if (currentPackageName != null && currentPackageName != lastPackageName) {
-            lastPackageName = currentPackageName
-            lastPackageStartTime = System.currentTimeMillis() // Reset the timer
-        }
+        if (currentPackageName != null && monitoredApps.containsKey(currentPackageName)) {
+            val timeLimit = monitoredApps[currentPackageName] ?: 0
 
-        // Calculate elapsed time in seconds
-        val elapsedTime = (System.currentTimeMillis() - lastPackageStartTime) / 1000 // In seconds
+            Log.d("MonitoringService", "Monitoring $currentPackageName. Time limit: $timeLimit seconds")
+            // If the app has changed, reset the timer
+            if (currentPackageName != lastPackageName) {
+                lastPackageName = currentPackageName
+                lastPackageStartTime = System.currentTimeMillis() // Reset the timer
+            }
 
-        Log.d("AppMonitoring", "Current package: $lastPackageName, Elapsed time: $elapsedTime seconds")
+            // Calculate elapsed time in seconds
+            val elapsedTime = (System.currentTimeMillis() - lastPackageStartTime) / 1000 // In seconds
+            Log.d("AppMonitoring", "Current package: $lastPackageName, Elapsed time: $elapsedTime seconds")
 
-        if (lastPackageName != null &&
-            monitoredApps.contains(lastPackageName) &&
-            lastPackageName != "com.google.android.apps.nexuslauncher") {
             if (elapsedTime >= timeLimit) {
                 Log.d("AppMonitoring", "Time limit exceeded for $lastPackageName")
                 showOverlayMessage()
                 lastPackageStartTime = System.currentTimeMillis()
+                Log.d("MonitoringService", "Switched to $currentPackageName. Timer reset.")
             }
         }
     }
@@ -161,7 +134,9 @@ class MonitoringService : Service() {
                 for (i in 0 until jsonArray.length()) {
                     val jsonObject = jsonArray.getJSONObject(i)
                     val packageName = jsonObject.getString("packageName")
-                    monitoredApps.add(packageName)
+                    val timeLimit = jsonObject.getLong("timeLimit")
+                    monitoredApps.put(packageName, timeLimit)
+                    monitoredApps[packageName] = timeLimit
                 }
 
                 Log.d("MonitoringService", "Loaded monitored apps: $monitoredApps") // Debug log
@@ -181,15 +156,4 @@ class MonitoringService : Service() {
     override fun onBind(intent: Intent?): IBinder? {
         return null // No binding
     }
-    /*
-    private fun triggerOverlay() {
-        val overlay = Overlay(this)
-        overlay.showOverlay("salut")
-
-        // Hide the overlay after a few seconds if needed
-        Handler(Looper.getMainLooper()).postDelayed({
-            ///overlay.hideOverlay()
-        }, 5000) // 5 seconds delay
-    }
-    */
 }

@@ -160,11 +160,14 @@ class MainActivity : AppCompatActivity() {
             appDetails.timeLimit = timeLimit
             appDetails.mode = mode
 
-            // Update the layout text
-            (appItemView.getChildAt(1) as TextView).text =
-                "${appDetails.appName} (Limit: ${appDetails.timeLimit} mins, Mode: ${appDetails.mode})"
+            // Update the UI for the app
+            val nameView = appItemView.getChildAt(1) as TextView
+            val settingsView = appItemView.getChildAt(2) as TextView
+            nameView.text = appDetails.appName // Reset to app name only
+            settingsView.text = "Limit: ${appDetails.timeLimit} seconds, Mode: ${appDetails.mode}" // Update time/mode
 
             saveSelectedApps()
+            restartMonitoringService() // Restart service to apply the new time limit
         }
 
         builder.setNegativeButton("Remove") { _, _ ->
@@ -329,6 +332,8 @@ class MainActivity : AppCompatActivity() {
 
         editor.putString("selectedApps", jsonString)
         editor.apply()
+
+        Log.d("MainActivity", "Saved JSON to SharedPreferences: ${jsonArray.toString()}") // Debugging log
     }
 
     private fun loadSelectedApps() {
@@ -405,5 +410,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun isAppAlreadySelected(packageName: String): Boolean {
         return selectedApps.any { it.packageName == packageName }
+    }
+
+    private fun restartMonitoringService() {
+        val serviceIntent = Intent(this, MonitoringService::class.java)
+        stopService(serviceIntent) // Stop the current service
+        startMonitoringService()  // Start the service with updated data
     }
 }
