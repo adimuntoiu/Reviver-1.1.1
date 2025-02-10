@@ -1,7 +1,6 @@
 package com.example.reviver
 
 import android.app.AppOpsManager
-import android.content.pm.ApplicationInfo
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -14,10 +13,7 @@ import android.net.Uri
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
 import androidx.appcompat.app.AlertDialog
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -151,7 +147,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    /*override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
         if (requestCode == APP_PICKER_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
@@ -179,8 +175,82 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+     */
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == APP_PICKER_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
+            val selectedComponent = data.component
+            val originalPackage = selectedComponent?.packageName
+            val packageManager = packageManager
+            var finalPackage: String? = originalPackage
+
+            if (originalPackage != null) {
+                try {
+                    val appInfo = packageManager.getApplicationInfo(originalPackage, 0)
+                    val appName = packageManager.getApplicationLabel(appInfo).toString()
+
+                    val appDetails = AppDetails(
+                        packageName = originalPackage,
+                        appName = appName,
+                        timeLimit = 0,
+                        mode = "None"
+                    )
+
+                    if (!isAppAlreadySelected(originalPackage)) {
+                        selectedApps.add(appDetails)
+                        saveSelectedApps()
+                        addAppToMainLayout(appDetails)
+                    } else {
+                        Toast.makeText(this, "App already added!", Toast.LENGTH_SHORT).show()
+                    }
+                    return // ✅ Stop execution if package was found
+                } catch (e: PackageManager.NameNotFoundException) {
+                    Log.e("MainActivity", "App not found: $originalPackage, trying to resolve real package name...")
+                }
+            }
+
+            // ✅ If app was not found, try finding it in the installed apps list
+            val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+            val matchedApp = installedApps.find { app ->
+                originalPackage?.let { app.packageName.contains(it) } ?: false
+            }
+
+            finalPackage = matchedApp?.packageName ?: "com.android.unknown"
+
+            Log.e("MainActivity", "Assigned fallback package: $finalPackage")
+
+            val appDetails = AppDetails(
+                packageName = finalPackage,
+                appName = "Unknown App ($finalPackage)",
+                timeLimit = 0,
+                mode = "None"
+            )
+
+            selectedApps.add(appDetails)
+            saveSelectedApps()
+            addAppToMainLayout(appDetails)
+        }
+    }
+
+
+
+
 
     private fun addAppToMainLayout(appDetails: AppDetails) {
+        val packageManager = packageManager
+        var packageName = appDetails.packageName
+        var appName = appDetails.appName
+        var appIcon: Drawable? = null
+
+        try {
+            appIcon = packageManager.getApplicationIcon(packageName)
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.e("MainActivity", "App not found: $packageName, assigning default name")
+            packageName = "com.android.${appDetails.appName.lowercase().replace(" ", "")}"
+            appName = "Unknown App (${appDetails.appName})" // Provide a fallback display name
+        }
+
         val appItemView = ConstraintLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -193,9 +263,14 @@ class MainActivity : AppCompatActivity() {
         // App Icon
         val iconView = ImageView(this).apply {
             id = View.generateViewId()
-            setImageDrawable(packageManager.getApplicationIcon(appDetails.packageName))
+            try {
+                setImageDrawable(packageManager.getApplicationIcon(appDetails.packageName))
+            } catch (e: PackageManager.NameNotFoundException) {
+                Log.e("MainActivity", "Failed to load icon for ${appDetails.packageName}, using default icon.")
+                setImageResource(R.drawable.ic_notification) // Replace with a default icon
+            }
             layoutParams = LayoutParams(120, 120).apply {
-                marginEnd = 16 // Add margin between icon and text
+                marginEnd = 16
             }
         }
         appItemView.addView(iconView)

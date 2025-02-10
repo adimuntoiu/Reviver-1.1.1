@@ -30,6 +30,7 @@ class MonitoringService : Service() {
         if (key == "selectedApps") {
             Log.d("MonitoringService", "Detected JSON change, reloading monitored apps")
             loadMonitoredApps()
+            resetTimerIfNeeded()
         }
     }
     override fun onCreate() {
@@ -170,6 +171,14 @@ class MonitoringService : Service() {
 
                 monitoredApps[packageName] = timeLimit
             }
+        }
+    }
+    private fun resetTimerIfNeeded() {
+        val currentPackageName = getLastUsedApp()
+        if (currentPackageName != null && currentPackageName == lastPackageName) {
+            // Reset the timer for the current app if its time limit has changed
+            lastPackageStartTime = System.currentTimeMillis()
+            Log.d("MonitoringService", "Timer reset for $currentPackageName due to time limit change")
         }
     }
 
