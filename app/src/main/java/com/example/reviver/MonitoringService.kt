@@ -21,21 +21,16 @@ class MonitoringService : Service() {
     private var lastPackageName: String? = null
     private var lastPackageStartTime: Long = 0L
     private val handler = Handler(Looper.getMainLooper())
-    private val interval: Long = 1000 // 1 second for monitoring
-    private val timeLimit: Long = 20 // 20 seconds time limit
+    private val interval: Long = 1000 // Check every second
     private lateinit var overlay: Overlay
-    private val monitoredApps = mutableSetOf<String>() // List of apps to monitor
-
+    private val monitoredApps = mutableMapOf<String, Long>() // PackageName -> TimeLimit mapping
+    private val appEdited: Boolean = false
 
     override fun onCreate() {
         overlay = Overlay(this)
         super.onCreate()
 
-        // Ensure startForeground() is called immediately
         startForegroundServiceWithNotification()
-
-        // Start the monitoring task
-        // handler.post(monitorTask)
         loadMonitoredApps()
     }
 
@@ -43,6 +38,7 @@ class MonitoringService : Service() {
         handler.post(monitorTask)
         return START_STICKY
     }
+
     private fun startForegroundServiceWithNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelId = "monitoring_service"
@@ -54,7 +50,7 @@ class MonitoringService : Service() {
             val notification = NotificationCompat.Builder(this, channelId)
                 .setContentTitle("App Monitoring")
                 .setContentText("Monitoring app usage")
-                .setSmallIcon(R.drawable.ic_notification) // Change this to your icon
+                .setSmallIcon(R.drawable.ic_notification)
                 .build()
 
             startForeground(1, notification)
@@ -64,32 +60,37 @@ class MonitoringService : Service() {
     private val monitorTask = object : Runnable {
         override fun run() {
             monitorAppUsage()
-            handler.postDelayed(this, interval) // Re-run every 1 second
+            handler.postDelayed(this, interval)
         }
     }
 
+    private fun saveAppEditedFlag() {
+        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+        editor.putBoolean("appEdited", appEdited)
+        editor.apply()
+    }
 
     private fun monitorAppUsage() {
         val currentPackageName = getLastUsedApp()
+        loadMonitoredAppsLow()
 
-        // If the app has changed, reset the timer
-        if (currentPackageName != null && currentPackageName != lastPackageName) {
-            lastPackageName = currentPackageName
-            lastPackageStartTime = System.currentTimeMillis() // Reset the timer
-        }
+        if (currentPackageName != null && monitoredApps.containsKey(currentPackageName)) {
+            val timeLimit = monitoredApps[currentPackageName] ?: return
 
-        // Calculate elapsed time in seconds
-        val elapsedTime = (System.currentTimeMillis() - lastPackageStartTime) / 1000 // In seconds
+            // Reset timer when switching apps
+            if (currentPackageName != lastPackageName) {
+                lastPackageName = currentPackageName
+                lastPackageStartTime = System.currentTimeMillis()
+            }
 
-        Log.d("AppMonitoring", "Current package: $lastPackageName, Elapsed time: $elapsedTime seconds")
+            val elapsedTime = (System.currentTimeMillis() - lastPackageStartTime) / 1000L // Convert to seconds
+            Log.d("AppMonitoring", "Current package: $lastPackageName, Elapsed time: $elapsedTime seconds")
 
-        if (lastPackageName != null &&
-            monitoredApps.contains(lastPackageName) &&
-            lastPackageName != "com.google.android.apps.nexuslauncher") {
             if (elapsedTime >= timeLimit) {
                 Log.d("AppMonitoring", "Time limit exceeded for $lastPackageName")
                 showOverlayMessage()
-                lastPackageStartTime = System.currentTimeMillis()
+                lastPackageStartTime = System.currentTimeMillis() // Reset timer after overlay is shown
             }
         }
     }
@@ -97,7 +98,7 @@ class MonitoringService : Service() {
     private fun getLastUsedApp(): String? {
         val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val endTime = System.currentTimeMillis()
-        val startTime = endTime - 1000 * 60 * 60 * 24 // Check for the last 24 hours
+        val startTime = endTime - 1000 * 60 * 60 * 24 // Last 24 hours
 
         val usageStatsList = usageStatsManager.queryUsageStats(
             UsageStatsManager.INTERVAL_DAILY, startTime, endTime
@@ -115,16 +116,15 @@ class MonitoringService : Service() {
         return lastUsedApp?.packageName
     }
 
-
     private fun showOverlayMessage() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Log.e("MonitoringService", "Overlay permission is not granted")
-            // Optionally notify the user or take alternative action
             return
         }
         overlay.showOverlay("Time limit has been reached. Please take a break.")
         Log.d("MonitoringService", "Overlay is displayed")
     }
+
     private fun loadMonitoredApps() {
         val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
         val json = sharedPreferences.getString("selectedApps", null)
@@ -137,7 +137,9 @@ class MonitoringService : Service() {
                 for (i in 0 until jsonArray.length()) {
                     val jsonObject = jsonArray.getJSONObject(i)
                     val packageName = jsonObject.getString("packageName")
-                    monitoredApps.add(packageName)
+                    val timeLimit = jsonObject.getInt("timeLimit").toLong() // Convert Int to Long
+
+                    monitoredApps[packageName] = timeLimit
                 }
 
                 Log.d("MonitoringService", "Loaded monitored apps: $monitoredApps") // Debug log
@@ -149,12 +151,31 @@ class MonitoringService : Service() {
         }
     }
 
+    private fun loadMonitoredAppsLow(){
+        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        val json = sharedPreferences.getString("selectedApps", null)
+
+        if (json != null) {
+            val jsonArray = JSONArray(json)
+            monitoredApps.clear()
+
+            for (i in 0 until jsonArray.length()) {
+                val jsonObject = jsonArray.getJSONObject(i)
+                val packageName = jsonObject.getString("packageName")
+                val timeLimit = jsonObject.getInt("timeLimit").toLong()
+
+                monitoredApps[packageName] = timeLimit
+            }
+        }
+    }
+
+
     override fun onDestroy() {
         super.onDestroy()
-        handler.removeCallbacks(monitorTask) // Stop the monitoring task
+        handler.removeCallbacks(monitorTask)
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        return null // No binding
+        return null
     }
 }

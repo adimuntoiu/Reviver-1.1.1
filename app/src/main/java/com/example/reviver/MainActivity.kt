@@ -23,12 +23,12 @@ import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 
-
 class MainActivity : AppCompatActivity() {
     private val selectedApps = mutableListOf<AppDetails>() // List of selected apps
     private val appListContainer: LinearLayout by lazy {
         findViewById(R.id.appListContainer)
     }
+    private var appEdited: Boolean = false
     companion object {
         private const val APP_PICKER_REQUEST_CODE = 1
     }
@@ -67,7 +67,6 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(intent, APP_PICKER_REQUEST_CODE)
     }
 
-
     private fun showAppDetailsDialog(appDetails: AppDetails) {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Set Details for ${appDetails.appName}")
@@ -103,6 +102,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+
     private fun editAppDetailsDialog(appDetails: AppDetails, appItemView: ConstraintLayout) {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Edit Details for ${appDetails.appName}")
@@ -133,10 +133,11 @@ class MainActivity : AppCompatActivity() {
             appDetails.timeLimit = timeLimit
             appDetails.mode = mode
 
-            // Update the layout text
-            (appItemView.getChildAt(1) as TextView).text =
-                "${appDetails.appName} (Limit: ${appDetails.timeLimit} mins, Mode: ${appDetails.mode})"
+            // Find and update the settings view (which displays the limit and mode)
+            val settingsView = appItemView.getChildAt(2) as? TextView
+            settingsView?.text = "Limit: ${appDetails.timeLimit} seconds, Mode: ${appDetails.mode}"
 
+            appEdited = true
             saveSelectedApps()
         }
 
@@ -150,9 +151,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    /**
-     * Handles the app picker result
-     */
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
@@ -270,7 +268,6 @@ class MainActivity : AppCompatActivity() {
         appListContainer.addView(appItemView)
     }
 
-
     private fun removeApp(appDetails: AppDetails) {
         selectedApps.removeIf { it.packageName == appDetails.packageName }
         saveSelectedApps()
@@ -282,6 +279,10 @@ class MainActivity : AppCompatActivity() {
 
         val jsonArray = JSONArray()
         for (app in selectedApps) {
+            if (app.packageName.contains("$")) {
+                Log.e("MainActivity", "Skipping invalid package during save: ${app.packageName}")
+                continue
+            }
             val jsonObject = JSONObject()
             jsonObject.put("packageName", app.packageName)
             jsonObject.put("name", app.appName)
@@ -309,8 +310,15 @@ class MainActivity : AppCompatActivity() {
 
             for (i in 0 until jsonArray.length()) {
                 val jsonObject = jsonArray.getJSONObject(i)
+                val packageName = jsonObject.getString("packageName")
+
+                if (packageName.contains("$")) {
+                    Log.e("MainActivity", "Skipping invalid package: $packageName")
+                    continue // Ignore this entry
+                }
+
                 val app = AppDetails(
-                    packageName = jsonObject.getString("packageName"),
+                    packageName = packageName,
                     appName = jsonObject.getString("name"),
                     timeLimit = jsonObject.getInt("timeLimit"),
                     mode = jsonObject.getString("mode")
@@ -319,11 +327,14 @@ class MainActivity : AppCompatActivity() {
             }
 
             for (app in selectedApps) {
-                addAppToMainLayout(app)
+                try {
+                    addAppToMainLayout(app)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to add ${app.packageName} to layout", e)
+                }
             }
         }
     }
-
 
     private fun hasUsageStatsPermission(): Boolean {
         val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
@@ -360,7 +371,6 @@ class MainActivity : AppCompatActivity() {
         serviceIntent.putStringArrayListExtra(
             "monitoredApps",
             ArrayList(selectedApps.map { it.packageName })
-
         )
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
