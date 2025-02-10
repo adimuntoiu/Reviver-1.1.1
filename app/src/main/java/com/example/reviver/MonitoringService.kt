@@ -15,6 +15,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import android.provider.Settings
 import org.json.JSONArray
+import android.content.SharedPreferences
+import android.content.BroadcastReceiver
 
 class MonitoringService : Service() {
 
@@ -24,14 +26,21 @@ class MonitoringService : Service() {
     private val interval: Long = 1000 // Check every second
     private lateinit var overlay: Overlay
     private val monitoredApps = mutableMapOf<String, Long>() // PackageName -> TimeLimit mapping
-    private val appEdited: Boolean = false
-
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+        if (key == "selectedApps") {
+            Log.d("MonitoringService", "Detected JSON change, reloading monitored apps")
+            loadMonitoredApps()
+        }
+    }
     override fun onCreate() {
         overlay = Overlay(this)
         super.onCreate()
 
         startForegroundServiceWithNotification()
         loadMonitoredApps()
+
+        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -57,18 +66,12 @@ class MonitoringService : Service() {
         }
     }
 
+
     private val monitorTask = object : Runnable {
         override fun run() {
             monitorAppUsage()
             handler.postDelayed(this, interval)
         }
-    }
-
-    private fun saveAppEditedFlag() {
-        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        editor.putBoolean("appEdited", appEdited)
-        editor.apply()
     }
 
     private fun monitorAppUsage() {
@@ -95,6 +98,7 @@ class MonitoringService : Service() {
         }
     }
 
+
     private fun getLastUsedApp(): String? {
         val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val endTime = System.currentTimeMillis()
@@ -117,7 +121,7 @@ class MonitoringService : Service() {
     }
 
     private fun showOverlayMessage() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+        if (!Settings.canDrawOverlays(this)) {
             Log.e("MonitoringService", "Overlay permission is not granted")
             return
         }
@@ -173,6 +177,8 @@ class MonitoringService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(monitorTask)
+        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener) // Unregister listener
     }
 
     override fun onBind(intent: Intent?): IBinder? {
