@@ -56,6 +56,9 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")  // Optional: Material UI
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.10")
+    implementation ("com.google.android.material:material:1.9.0")
+    implementation ("androidx.navigation:navigation-fragment-ktx:2.5.3")
+    implementation ("androidx.navigation:navigation-ui-ktx:2.5.3")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

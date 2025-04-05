@@ -1,7 +1,6 @@
 package com.example.reviver
 
 import android.app.AppOpsManager
-import android.content.pm.ApplicationInfo
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -14,21 +13,28 @@ import android.net.Uri
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
 import androidx.appcompat.app.AlertDialog
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-
+import androidx.navigation.ui.NavigationUI
+import androidx.navigation.fragment.NavHostFragment
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.example.reviver.ui.HomeFragment
+import com.example.reviver.ui.StatsFragment
+import com.example.reviver.ui.InfoFragment
+import com.example.reviver.ui.SettingsFragment
+import androidx.fragment.app.Fragment
 
 class MainActivity : AppCompatActivity() {
     private val selectedApps = mutableListOf<AppDetails>() // List of selected apps
     private val appListContainer: LinearLayout by lazy {
         findViewById(R.id.appListContainer)
     }
+    // val backgroundImage: ImageView = findViewById(R.id.backgroundImage)
+
+    private var appEdited: Boolean = false
     companion object {
         private const val APP_PICKER_REQUEST_CODE = 1
     }
@@ -57,6 +63,27 @@ class MainActivity : AppCompatActivity() {
         addButton.setOnClickListener {
             showAppSelectionDialog()
         }
+
+        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottomNavigationView)
+
+        // Set up navigation listener
+        bottomNavigationView.setOnItemSelectedListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.nav_home -> replaceFragment(HomeFragment())
+                R.id.nav_stats -> replaceFragment(StatsFragment())
+                R.id.nav_info -> replaceFragment(InfoFragment())
+                R.id.nav_settings -> replaceFragment(SettingsFragment())
+            }
+            true
+        }
+    }
+
+    private fun showAppSelectionDialog() {
+        val intent = Intent(Intent.ACTION_PICK_ACTIVITY).apply {
+            type = null
+            putExtra(Intent.EXTRA_INTENT, Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
+        }
+        startActivityForResult(intent, APP_PICKER_REQUEST_CODE)
     }
 
     private fun showAppDetailsDialog(appDetails: AppDetails) {
@@ -93,42 +120,7 @@ class MainActivity : AppCompatActivity() {
         builder.create().show()
     }
 
-    private fun showAppSelectionDialog() {
-        val packageManager = packageManager
-        val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA).mapNotNull { app ->
-            if (packageManager.getLaunchIntentForPackage(app.packageName) != null) {
-                AppDetails(
-                    packageName = app.packageName,
-                    appName = app.loadLabel(packageManager).toString(),
-                    timeLimit = 0,
-                    mode = "None"
-                )
-            } else null
-        }
 
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("Choose an app")
-
-        val recyclerView = RecyclerView(this).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-        }
-
-        val appListAdapter = AppListAdapter(this, installedApps).apply {
-            onAppSelected = { selectedApp ->
-                if (!isAppAlreadySelected(selectedApp.packageName)) {
-                    showAppDetailsDialog(selectedApp)
-                } else {
-                    Toast.makeText(this@MainActivity, "App already added!", Toast.LENGTH_SHORT).show()
-                }
-                builder.create().dismiss()
-            }
-        }
-        recyclerView.adapter = appListAdapter
-
-        builder.setView(recyclerView)
-        builder.setCancelable(true) // Allow dialog dismissal by clicking outside
-        builder.create().show()
-    }
 
     private fun editAppDetailsDialog(appDetails: AppDetails, appItemView: ConstraintLayout) {
         val builder = AlertDialog.Builder(this)
@@ -160,14 +152,12 @@ class MainActivity : AppCompatActivity() {
             appDetails.timeLimit = timeLimit
             appDetails.mode = mode
 
-            // Update the UI for the app
-            val nameView = appItemView.getChildAt(1) as TextView
-            val settingsView = appItemView.getChildAt(2) as TextView
-            nameView.text = appDetails.appName // Reset to app name only
-            settingsView.text = "Limit: ${appDetails.timeLimit} seconds, Mode: ${appDetails.mode}" // Update time/mode
+            // Find and update the settings view (which displays the limit and mode)
+            val settingsView = appItemView.getChildAt(2) as? TextView
+            settingsView?.text = "Limit: ${appDetails.timeLimit} seconds, Mode: ${appDetails.mode}"
 
+            appEdited = true
             saveSelectedApps()
-            restartMonitoringService() // Restart service to apply the new time limit
         }
 
         builder.setNegativeButton("Remove") { _, _ ->
@@ -179,47 +169,76 @@ class MainActivity : AppCompatActivity() {
         builder.create().show()
     }
 
-
-    /**
-     * Handles the app picker result
-     */
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
         if (requestCode == APP_PICKER_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
             val selectedComponent = data.component
-            val selectedPackage = selectedComponent?.packageName
+            val originalPackage = selectedComponent?.packageName
             val packageManager = packageManager
+            var finalPackage: String? = originalPackage
 
-            if (selectedPackage != null) {
+            if (originalPackage != null) {
                 try {
-                    val appName = packageManager.getApplicationLabel(
-                        packageManager.getApplicationInfo(selectedPackage, 0)
-                    ).toString()
-                    val appIcon = packageManager.getApplicationIcon(selectedPackage)
+                    val appInfo = packageManager.getApplicationInfo(originalPackage, 0)
+                    val appName = packageManager.getApplicationLabel(appInfo).toString()
 
                     val appDetails = AppDetails(
-                        packageName = selectedPackage,
+                        packageName = originalPackage,
                         appName = appName,
                         timeLimit = 0,
                         mode = "None"
                     )
 
-                    if (!isAppAlreadySelected(selectedPackage)) {
+                    if (!isAppAlreadySelected(originalPackage)) {
                         selectedApps.add(appDetails)
                         saveSelectedApps()
                         addAppToMainLayout(appDetails)
                     } else {
                         Toast.makeText(this, "App already added!", Toast.LENGTH_SHORT).show()
                     }
+                    return
                 } catch (e: PackageManager.NameNotFoundException) {
-                    Toast.makeText(this, "Failed to retrieve app details.", Toast.LENGTH_SHORT).show()
+                    Log.e("MainActivity", "App not found: $originalPackage, trying to resolve real package name...")
                 }
             }
+
+            val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+            val matchedApp = installedApps.find { app ->
+                originalPackage?.let { app.packageName.contains(it) } ?: false
+            }
+
+            finalPackage = matchedApp?.packageName ?: "com.android.unknown"
+
+            Log.e("MainActivity", "Assigned fallback package: $finalPackage")
+
+            val appDetails = AppDetails(
+                packageName = finalPackage,
+                appName = "Unknown App ($finalPackage)",
+                timeLimit = 0,
+                mode = "None"
+            )
+
+            selectedApps.add(appDetails)
+            saveSelectedApps()
+            addAppToMainLayout(appDetails)
         }
     }
 
     private fun addAppToMainLayout(appDetails: AppDetails) {
+        val packageManager = packageManager
+        var packageName = appDetails.packageName
+        var appName = appDetails.appName
+        var appIcon: Drawable? = null
+
+        try {
+            appIcon = packageManager.getApplicationIcon(packageName)
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.e("MainActivity", "App not found: $packageName, assigning default name")
+            packageName = "com.android.${appDetails.appName.lowercase().replace(" ", "")}"
+            appName = "Unknown App (${appDetails.appName})" // Provide a fallback display name
+        }
+
         val appItemView = ConstraintLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -228,13 +247,24 @@ class MainActivity : AppCompatActivity() {
                 setMargins(16, 16, 16, 16) // Increased margins
             }
         }
+        /*
+        if (selectedApps.isEmpty()) {
+            val backgroundImage: ImageView = findViewById(R.id.backgroundImage)
+            backgroundImage.setImageResource(R.drawable.custom_background_no_text)
+        }
+        */
 
         // App Icon
         val iconView = ImageView(this).apply {
             id = View.generateViewId()
-            setImageDrawable(packageManager.getApplicationIcon(appDetails.packageName))
+            try {
+                setImageDrawable(packageManager.getApplicationIcon(appDetails.packageName))
+            } catch (e: PackageManager.NameNotFoundException) {
+                Log.e("MainActivity", "Failed to load icon for ${appDetails.packageName}, using default icon.")
+                setImageResource(R.drawable.ic_notification) // Replace with a default icon
+            }
             layoutParams = LayoutParams(120, 120).apply {
-                marginEnd = 16 // Add margin between icon and text
+                marginEnd = 16
             }
         }
         appItemView.addView(iconView)
@@ -307,7 +337,6 @@ class MainActivity : AppCompatActivity() {
         appListContainer.addView(appItemView)
     }
 
-
     private fun removeApp(appDetails: AppDetails) {
         selectedApps.removeIf { it.packageName == appDetails.packageName }
         saveSelectedApps()
@@ -319,6 +348,10 @@ class MainActivity : AppCompatActivity() {
 
         val jsonArray = JSONArray()
         for (app in selectedApps) {
+            if (app.packageName.contains("$")) {
+                Log.e("MainActivity", "Skipping invalid package during save: ${app.packageName}")
+                continue
+            }
             val jsonObject = JSONObject()
             jsonObject.put("packageName", app.packageName)
             jsonObject.put("name", app.appName)
@@ -332,8 +365,6 @@ class MainActivity : AppCompatActivity() {
 
         editor.putString("selectedApps", jsonString)
         editor.apply()
-
-        Log.d("MainActivity", "Saved JSON to SharedPreferences: ${jsonArray.toString()}") // Debugging log
     }
 
     private fun loadSelectedApps() {
@@ -348,8 +379,15 @@ class MainActivity : AppCompatActivity() {
 
             for (i in 0 until jsonArray.length()) {
                 val jsonObject = jsonArray.getJSONObject(i)
+                val packageName = jsonObject.getString("packageName")
+
+                if (packageName.contains("$")) {
+                    Log.e("MainActivity", "Skipping invalid package: $packageName")
+                    continue // Ignore this entry
+                }
+
                 val app = AppDetails(
-                    packageName = jsonObject.getString("packageName"),
+                    packageName = packageName,
                     appName = jsonObject.getString("name"),
                     timeLimit = jsonObject.getInt("timeLimit"),
                     mode = jsonObject.getString("mode")
@@ -358,11 +396,14 @@ class MainActivity : AppCompatActivity() {
             }
 
             for (app in selectedApps) {
-                addAppToMainLayout(app)
+                try {
+                    addAppToMainLayout(app)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to add ${app.packageName} to layout", e)
+                }
             }
         }
     }
-
 
     private fun hasUsageStatsPermission(): Boolean {
         val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
@@ -399,7 +440,6 @@ class MainActivity : AppCompatActivity() {
         serviceIntent.putStringArrayListExtra(
             "monitoredApps",
             ArrayList(selectedApps.map { it.packageName })
-
         )
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
@@ -412,9 +452,23 @@ class MainActivity : AppCompatActivity() {
         return selectedApps.any { it.packageName == packageName }
     }
 
-    private fun restartMonitoringService() {
-        val serviceIntent = Intent(this, MonitoringService::class.java)
-        stopService(serviceIntent) // Stop the current service
-        startMonitoringService()  // Start the service with updated data
+    private fun replaceFragment(fragment: Fragment) {
+        val transaction = supportFragmentManager.beginTransaction()
+        transaction.replace(R.id.fragmentContainer, fragment)
+        transaction.commit()
+
+        // Ensure we access addButton after the view is fully initialized
+        val addButton = findViewById<Button>(R.id.addButton)
+        val viewLogsButton = findViewById<Button>(R.id.viewLogsButton)
+
+        // Hide addButton on certain fragments
+        when (fragment) {
+            is HomeFragment -> addButton.visibility = View.VISIBLE
+            is StatsFragment, is InfoFragment, is SettingsFragment -> addButton.visibility = View.INVISIBLE
+        }
+        when (fragment){
+            is SettingsFragment -> viewLogsButton.visibility = View.VISIBLE
+            is StatsFragment, is InfoFragment, is HomeFragment -> viewLogsButton.visibility = View.INVISIBLE
+        }
     }
 }
