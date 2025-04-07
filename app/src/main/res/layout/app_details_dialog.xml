@@ -20,4 +20,19 @@
         android:layout_marginTop="16dp"
         android:layout_marginBottom="32dp"
         android:padding="30dp"/>
+
+    <Button
+        android:id="@+id/changeBackgroundButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Change Background"
+        android:layout_marginTop="12dp"/>
+
+    <EditText
+        android:id="@+id/maxOpensInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Launch limit (Mode 2)"
+        android:inputType="number" />
+
 </LinearLayout>
