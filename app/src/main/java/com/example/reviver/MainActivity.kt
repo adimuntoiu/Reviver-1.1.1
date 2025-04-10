@@ -28,6 +28,8 @@ import com.example.reviver.ui.SettingsFragment
 import androidx.fragment.app.Fragment
 import java.io.File
 import android.content.pm.ApplicationInfo
+import android.view.ViewGroup
+
 
 
 class MainActivity : AppCompatActivity() {
@@ -40,6 +42,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appListScrollView: ScrollView
 
     private var appEdited: Boolean = false
+    private val appExists: Boolean = false
+
     companion object {
         private const val APP_PICKER_REQUEST_CODE = 1
     }
@@ -60,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             startMonitoringService()
         }
-        debugPreferences()
+
         loadSelectedApps()
 
         val addButton: Button = findViewById(R.id.addButton)
@@ -88,52 +92,57 @@ class MainActivity : AppCompatActivity() {
             }
             true
         }
-        /*
-        bottomNavigationView.setOnItemSelectedListener {
-            when (it.itemId) {
-                R.id.nav_home -> {
-                    switchFragment("HOME") { HomeFragment() }
-                    true
-                }
-                R.id.nav_settings -> {
-                    switchFragment("SETTINGS") { SettingsFragment() }
-                    true
-                }
-                R.id.nav_info -> {
-                    switchFragment("INFO") { InfoFragment() }
-                    true
-                }
-                R.id.nav_stats ->{
-                    switchFragment("STATS") { StatsFragment() }
-                    true
-                }
-                else -> false
-            }
-        }
-         */
     }
 
     private fun showAppSelectionDialog() {
         val packageManager = packageManager
         val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
 
-        val launchableApps = installedApps.filter { app ->
-            packageManager.getLaunchIntentForPackage(app.packageName) != null
-        }.sortedBy { app ->
-            packageManager.getApplicationLabel(app).toString().lowercase()
+        val launchableApps = installedApps.filter {
+            packageManager.getLaunchIntentForPackage(it.packageName) != null
+        }.sortedBy {
+            packageManager.getApplicationLabel(it).toString().lowercase()
         }
 
-        val appNames = launchableApps.map { app ->
-            packageManager.getApplicationLabel(app).toString()
+        val selectedItems = BooleanArray(launchableApps.size)
+
+        val dialogLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
         }
 
-        val selectedItems = BooleanArray(launchableApps.size) // Track which items are checked
+        val listView = ListView(this)
+        val adapter = object : ArrayAdapter<ApplicationInfo>(this, R.layout.app_list_item, launchableApps) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val inflater = LayoutInflater.from(context)
+                val row = inflater.inflate(R.layout.app_list_item, parent, false)
+
+                val appIcon = row.findViewById<ImageView>(R.id.appIcon)
+                val appName = row.findViewById<TextView>(R.id.appName)
+                val checkBox = row.findViewById<CheckBox>(R.id.appCheckBox)
+
+                val appInfo = getItem(position)!!
+                appIcon.setImageDrawable(packageManager.getApplicationIcon(appInfo))
+                appName.text = packageManager.getApplicationLabel(appInfo).toString()
+
+                checkBox.isChecked = selectedItems[position]
+                checkBox.setOnCheckedChangeListener { _, isChecked ->
+                    selectedItems[position] = isChecked
+                }
+
+                row.setOnClickListener {
+                    checkBox.isChecked = !checkBox.isChecked
+                }
+
+                return row
+            }
+        }
+
+        listView.adapter = adapter
+        dialogLayout.addView(listView)
 
         AlertDialog.Builder(this)
             .setTitle("Select Apps")
-            .setMultiChoiceItems(appNames.toTypedArray(), selectedItems) { _, which, isChecked ->
-                selectedItems[which] = isChecked
-            }
+            .setView(dialogLayout)
             .setPositiveButton("Add") { _, _ ->
                 for (i in selectedItems.indices) {
                     if (selectedItems[i]) {
@@ -141,7 +150,6 @@ class MainActivity : AppCompatActivity() {
                         val appName = packageManager.getApplicationLabel(appInfo).toString()
                         val packageName = appInfo.packageName
 
-                        // Avoid duplicates
                         if (selectedApps.none { it.packageName == packageName }) {
                             val newApp = AppDetails(
                                 appName = appName,
@@ -162,7 +170,6 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-
     private fun showAppDetailsDialog(appDetails: AppDetails? = null) {
         val builder = AlertDialog.Builder(this)
         val isEditMode = appDetails != null
@@ -172,6 +179,8 @@ class MainActivity : AppCompatActivity() {
         val timeLimitInput = dialogLayout.findViewById<EditText>(R.id.timeLimitInput)
         val modeSpinner = dialogLayout.findViewById<Spinner>(R.id.modeSpinner)
         val maxOpensInput = dialogLayout.findViewById<EditText>(R.id.maxOpensInput)
+        val changeBackgroundButton = dialogLayout.findViewById<Button>(R.id.changeBackgroundButton)
+        val removeBackgroundButton = dialogLayout.findViewById<Button>(R.id.removeBackgroundButton)
 
         // Set up spinner
         ArrayAdapter.createFromResource(
@@ -380,12 +389,6 @@ class MainActivity : AppCompatActivity() {
                 setMargins(16, 16, 16, 16) // Increased margins
             }
         }
-        /*
-        if (selectedApps.isEmpty()) {
-            val backgroundImage: ImageView = findViewById(R.id.backgroundImage)
-            backgroundImage.setImageResource(R.drawable.custom_background_no_text)
-        }
-        */
 
         // App Icon
         val iconView = ImageView(this).apply {
@@ -463,6 +466,9 @@ class MainActivity : AppCompatActivity() {
             topToTop = LayoutParams.PARENT_ID
             bottomToBottom = LayoutParams.PARENT_ID
         }
+        val appDoesntExistText = findViewById<TextView>(R.id.appDoesntExistText)
+        appDoesntExistText.visibility = View.INVISIBLE
+
         if (!selectedApps.contains(appDetails)){
             selectedApps.add(appDetails)
         }
@@ -475,7 +481,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun removeApp(appDetails: AppDetails) {
+        // Validate removal from the data list
+        val initialCount = selectedApps.size
         selectedApps.removeIf { it.packageName == appDetails.packageName }
+
+        if (selectedApps.size == initialCount) {
+            Log.e("RemoveError", "Failed to remove app: ${appDetails.packageName}")
+            return
+        }
+
+        // Force immediate UI update
+        runOnUiThread {
+            appListContainer.removeAllViews()
+            selectedApps.forEach { addAppToMainLayout(it) }
+        }
+
+        // Persist changes
         saveSelectedApps()
     }
 
@@ -492,15 +513,24 @@ class MainActivity : AppCompatActivity() {
                     put("currentOpens", app.currentOpens)
                 })
             }
+
         }
 
         sharedPrefs.edit().apply {
             putString("selectedApps", jsonArray.toString())
             commit() // Using commit() for immediate write
         }
+        val appDoesntExistText = findViewById<TextView>(R.id.appDoesntExistText)
+        if (hasApps()) {
+            appDoesntExistText.visibility = View.INVISIBLE
+        }
+        else {
+            appDoesntExistText.visibility = View.VISIBLE
+        }
 
         // Verify save
         Log.d("SaveDebug", "Saved apps: ${sharedPrefs.getString("selectedApps", "")}")
+        updateAppExists()
     }
 
     private fun loadSelectedApps() {
@@ -523,7 +553,8 @@ class MainActivity : AppCompatActivity() {
                                     mode = obj.getString("mode"),
                                     maxOpens = obj.optInt("maxOpens", 0),
                                     currentOpens = obj.optInt("currentOpens", 0)
-                                ))
+                                )
+                                )
                             }
                         }
                     }
@@ -570,16 +601,13 @@ class MainActivity : AppCompatActivity() {
         serviceIntent.putStringArrayListExtra(
             "monitoredApps",
             ArrayList(selectedApps.map { it.packageName })
+
         )
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {
             startService(serviceIntent)
         }
-    }
-
-    private fun isAppAlreadySelected(packageName: String): Boolean {
-        return selectedApps.any { it.packageName == packageName }
     }
 
     private fun replaceFragment(fragment: Fragment) {
@@ -591,16 +619,25 @@ class MainActivity : AppCompatActivity() {
         val addButton = findViewById<Button>(R.id.addButton)
         val viewLogsButton = findViewById<Button>(R.id.viewLogsButton)
         val appListScrollView = findViewById<ScrollView>(R.id.appListScrollView)
+        val appDoesntExistText = findViewById<TextView>(R.id.appDoesntExistText)
 
         // Hide addButton
         when (fragment) {
-            is HomeFragment -> addButton.visibility = View.VISIBLE
-            is StatsFragment, is InfoFragment, is SettingsFragment -> addButton.visibility = View.INVISIBLE
-        }
-        // HideScrollView
-        when (fragment){
-            is HomeFragment -> appListScrollView.visibility = View.VISIBLE
-            is StatsFragment, is InfoFragment, is SettingsFragment -> appListScrollView.visibility = View.INVISIBLE
+            is HomeFragment -> {
+                addButton.visibility = View.VISIBLE
+                appListScrollView.visibility = View.VISIBLE
+                if (hasApps()){
+                    appDoesntExistText.visibility = View.INVISIBLE
+                }
+                else{
+                    appDoesntExistText.visibility = View.VISIBLE
+                }
+            }
+            is StatsFragment, is InfoFragment, is SettingsFragment -> {
+                addButton.visibility = View.INVISIBLE
+                appListScrollView.visibility = View.INVISIBLE
+                appDoesntExistText.visibility = View.INVISIBLE
+            }
         }
     }
     private val fragmentMap = mutableMapOf<String, Fragment>()
@@ -609,31 +646,35 @@ class MainActivity : AppCompatActivity() {
         return fragmentMap.getOrPut(tag) { creator() }
     }
 
-    private fun switchFragment(tag: String, creator: () -> Fragment) {
-        val fragment = getFragment(tag, creator)
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragmentContainer, fragment, tag)
-            .commitAllowingStateLoss()
-    }
     private fun refreshAppList() {
         appListContainer.removeAllViews()
         for (app in selectedApps) {
             addAppToMainLayout(app)
         }
     }
-    private fun debugPreferences() {
-        try {
-            val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
-            val content = sharedPreferences.getString("selectedApps", "NULL")
-            Log.d("PrefsContent", "Preferences content: $content")
+    private fun updateAppExists() {
+        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        val json = sharedPreferences.getString("selectedApps", "[]") ?: "[]"
+        // If the json string is "[]" or empty, then no apps exist.
+        val appExists = json.isNotEmpty() && json != "[]"
+        Log.d("AppExists", "appExists updated to $appExists")
+    }
 
-            // Verify file content directly
-            val prefsFile = File(filesDir.parentFile, "shared_prefs/ReviverPrefs.xml")
-            if (prefsFile.exists()) {
-                Log.d("PrefsContent", "File content:\n${prefsFile.readText()}")
+
+    fun hasApps(): Boolean {
+        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        val jsonString = sharedPreferences.getString("selectedApps", null)
+
+        return if (jsonString.isNullOrEmpty()) {
+            false
+        } else {
+            try {
+                val jsonArray = JSONArray(jsonString)
+                jsonArray.length() > 0
+            } catch (e: Exception) {
+                Log.e("HasApps", "Error parsing apps", e)
+                false
             }
-        } catch (e: Exception) {
-            Log.e("PrefsContent", "Error reading preferences", e)
         }
     }
 }

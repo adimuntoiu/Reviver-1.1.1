@@ -1,7 +1,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <bitmap
-            android:src="@drawable/first_page"
+            android:src="@drawable/first_page_no_text"
             android:gravity="center_horizontal|top"
 
             />

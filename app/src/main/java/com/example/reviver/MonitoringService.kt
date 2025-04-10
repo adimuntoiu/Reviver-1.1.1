@@ -1,8 +1,6 @@
 package com.example.reviver
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
+import android.app.*
 import android.app.usage.UsageStats
 import android.app.usage.UsageStatsManager
 import android.content.Context
@@ -15,43 +13,35 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import android.provider.Settings
 import org.json.JSONArray
+import org.json.JSONObject
 
 class MonitoringService : Service() {
 
     private var lastPackageName: String? = null
     private var lastPackageStartTime: Long = 0L
     private val handler = Handler(Looper.getMainLooper())
-    private val interval: Long = 1000 // 1 second for monitoring
-    private val timeLimit: Long = 20 // 20 seconds time limit
+    private val interval: Long = 1000 // 1 second
     private lateinit var overlay: Overlay
-    private val monitoredApps = mutableMapOf<String, Long>() // List of apps to monitor
-
+    private val monitoredApps = mutableListOf<AppDetails>()
 
     override fun onCreate() {
-        overlay = Overlay(this)
         super.onCreate()
+        overlay = Overlay(this)
         startForegroundServiceWithNotification()
-        loadMonitoredApps()
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         handler.post(monitorTask)
-
-        return START_STICKY
     }
 
     private fun startForegroundServiceWithNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channelId = "monitoring_service"
-            val channelName = "App Monitoring Service"
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT)
+            val channel = NotificationChannel(channelId, "App Monitoring Service", NotificationManager.IMPORTANCE_LOW)
             notificationManager.createNotificationChannel(channel)
 
             val notification = NotificationCompat.Builder(this, channelId)
-                .setContentTitle("App Monitoring")
-                .setContentText("Monitoring app usage")
-                .setSmallIcon(R.drawable.ic_notification) // Change this to your icon
+                .setContentTitle("Reviver is Monitoring")
+                .setContentText("Monitoring your app usage.")
+                .setSmallIcon(R.drawable.ic_notification)
                 .build()
 
             startForeground(1, notification)
@@ -61,99 +51,126 @@ class MonitoringService : Service() {
     private val monitorTask = object : Runnable {
         override fun run() {
             monitorAppUsage()
-            handler.postDelayed(this, interval) // Re-run every 1 second
+            handler.postDelayed(this, interval)
         }
     }
 
     private fun monitorAppUsage() {
-        val currentPackageName = getLastUsedApp()
+        loadAppSettings() // Reload every time in case settings changed
 
-        if (currentPackageName != null && monitoredApps.containsKey(currentPackageName)) {
-            val timeLimit = monitoredApps[currentPackageName] ?: 0
+        val currentPackageName = getLastUsedApp() ?: return
+        val app = monitoredApps.find { it.packageName == currentPackageName } ?: return
 
-            Log.d("MonitoringService", "Monitoring $currentPackageName. Time limit: $timeLimit seconds")
-            // If the app has changed, reset the timer
-            if (currentPackageName != lastPackageName) {
-                lastPackageName = currentPackageName
-                lastPackageStartTime = System.currentTimeMillis() // Reset the timer
-            }
+        if (currentPackageName != lastPackageName) {
+            lastPackageName = currentPackageName
+            lastPackageStartTime = System.currentTimeMillis()
 
-            // Calculate elapsed time in seconds
-            val elapsedTime = (System.currentTimeMillis() - lastPackageStartTime) / 1000 // In seconds
-            Log.d("AppMonitoring", "Current package: $lastPackageName, Elapsed time: $elapsedTime seconds")
-
-            if (elapsedTime >= timeLimit) {
-                Log.d("AppMonitoring", "Time limit exceeded for $lastPackageName")
-                showOverlayMessage()
-                lastPackageStartTime = System.currentTimeMillis()
-                Log.d("MonitoringService", "Switched to $currentPackageName. Timer reset.")
+            // Mode 2: Increment launch count
+            if (app.mode == "Mode 2") {
+                incrementLaunchCount(currentPackageName)
+                saveLaunchCounts()
             }
         }
+
+        if (app.mode == "Mode 1") {
+            val elapsedTime = (System.currentTimeMillis() - lastPackageStartTime) / 1000
+            if (elapsedTime >= app.timeLimit) {
+                showOverlay("Time's up for ${app.appName}")
+                lastPackageStartTime = System.currentTimeMillis()
+            }
+        } else if (app.mode == "Mode 2") {
+            if (app.currentOpens >= app.maxOpens) {
+                showOverlay("${app.appName} exceeded open limit")
+            }
+        }
+    }
+
+    private fun showOverlay(message: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Log.e("Overlay", "Permission denied")
+            return
+        }
+        overlay.showOverlay(message)
     }
 
     private fun getLastUsedApp(): String? {
-        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val endTime = System.currentTimeMillis()
-        val startTime = endTime - 1000 * 60 * 60 * 24 // Check for the last 24 hours
+        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val end = System.currentTimeMillis()
+        val begin = end - 1000 * 60 * 60 * 24
+        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, begin, end)
 
-        val usageStatsList = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY, startTime, endTime
-        )
-
-        var lastUsedApp: UsageStats? = null
-        if (usageStatsList != null && usageStatsList.isNotEmpty()) {
-            for (usageStats in usageStatsList) {
-                if (lastUsedApp == null || usageStats.lastTimeUsed > lastUsedApp.lastTimeUsed) {
-                    lastUsedApp = usageStats
-                }
-            }
-        }
-
-        return lastUsedApp?.packageName
+        return stats?.maxByOrNull { it.lastTimeUsed }?.packageName
     }
 
-
-    private fun showOverlayMessage() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Log.e("MonitoringService", "Overlay permission is not granted")
-            // Optionally notify the user or take alternative action
-            return
+    private fun loadAppSettings() {
+        monitoredApps.clear()
+        val prefs = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        val json = prefs.getString("selectedApps", "[]") ?: return
+        val array = JSONArray(json)
+        for (i in 0 until array.length()) {
+            val obj = array.getJSONObject(i)
+            monitoredApps.add(
+                AppDetails(
+                    packageName = obj.getString("packageName"),
+                    appName = obj.getString("name"),
+                    timeLimit = obj.getInt("timeLimit"),
+                    mode = obj.getString("mode"),
+                    maxOpens = obj.optInt("maxOpens", 0),
+                    currentOpens = obj.optInt("currentOpens", 0),
+                    background = obj.optString("background", null)
+                )
+            )
         }
-        overlay.showOverlay("Time limit has been reached. Please take a break.")
-        Log.d("MonitoringService", "Overlay is displayed")
     }
-    private fun loadMonitoredApps() {
+
+    private fun saveLaunchCounts() {
+        val prefs = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+        val array = JSONArray()
+        for (app in monitoredApps) {
+            val obj = JSONObject()
+            obj.put("packageName", app.packageName)
+            obj.put("name", app.appName)
+            obj.put("timeLimit", app.timeLimit)
+            obj.put("mode", app.mode)
+            obj.put("maxOpens", app.maxOpens)
+            obj.put("currentOpens", app.currentOpens)
+            obj.put("background", app.background ?: "")
+            array.put(obj)
+        }
+        editor.putString("selectedApps", array.toString())
+        editor.commit()
+    }
+
+    fun incrementLaunchCount(packageName: String) {
         val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
-        val json = sharedPreferences.getString("selectedApps", null)
+        val jsonString = sharedPreferences.getString("selectedApps", "[]") ?: "[]"
 
-        if (json != null) {
-            try {
-                val jsonArray = JSONArray(json)
-                monitoredApps.clear()
-
-                for (i in 0 until jsonArray.length()) {
-                    val jsonObject = jsonArray.getJSONObject(i)
-                    val packageName = jsonObject.getString("packageName")
-                    val timeLimit = jsonObject.getLong("timeLimit")
-                    monitoredApps.put(packageName, timeLimit)
-                    monitoredApps[packageName] = timeLimit
+        try {
+            val jsonArray = JSONArray(jsonString)
+            for (i in 0 until jsonArray.length()) {
+                val appObject = jsonArray.getJSONObject(i)
+                if (appObject.getString("packageName") == packageName) {
+                    // Handle both string and number types for robustness
+                    val current = appObject.optInt("currentOpens", 0)
+                    appObject.put("currentOpens", current + 1)
+                    break
                 }
-
-                Log.d("MonitoringService", "Loaded monitored apps: $monitoredApps") // Debug log
-            } catch (e: Exception) {
-                Log.e("MonitoringService", "Failed to parse monitored apps", e)
             }
-        } else {
-            Log.d("MonitoringService", "No monitored apps found in SharedPreferences")
+
+            sharedPreferences.edit()
+                .putString("selectedApps", jsonArray.toString())
+                .apply()  // Use commit() for immediate results if needed
+
+        } catch (e: Exception) {
+            Log.e("LaunchCount", "Error updating launch count", e)
         }
     }
+
+    override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
         super.onDestroy()
-        handler.removeCallbacks(monitorTask) // Stop the monitoring task
-    }
-
-    override fun onBind(intent: Intent?): IBinder? {
-        return null // No binding
+        handler.removeCallbacks(monitorTask)
     }
 }

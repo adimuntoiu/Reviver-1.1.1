@@ -4,6 +4,17 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/first_page">
+    android:background="@drawable/first_page_no_text">
 
+    <TextView
+        android:layout_width="340dp"
+        android:layout_height="80dp"
+        android:text="You currently have no added apps with a time limit"
+        android:textSize="15dp"
+        android:fontFamily="@font/instrument_sans"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:paddingTop="160px"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

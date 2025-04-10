@@ -21,6 +21,19 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <TextView
+        android:id="@+id/appDoesntExistText"
+        android:layout_width="340dp"
+        android:layout_height="80dp"
+        android:text="You currently have no added apps with a time limit"
+        android:textSize="15dp"
+        android:fontFamily="@font/instrument_sans"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:paddingTop="160px"/>
+
     <!-- View Logs Button -->
     <!-- Add Button -->
     <Button
@@ -57,12 +70,12 @@
     <!-- Bottom Navigation Bar -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigationView"
-        android:layout_width="276dp"
-        android:layout_height="71dp"
+        android:layout_width="280dp"
+        android:layout_height="70dp"
         android:background="@drawable/middlebar"
         android:paddingBottom="4dp"
         app:itemHorizontalTranslationEnabled="false"
-        app:itemIconSize="24dp"
+        app:itemIconSize="25dp"
         app:labelVisibilityMode="unlabeled"
         app:menu="@menu/bottom_nav_menu"
         app:layout_constraintBottom_toBottomOf="parent"

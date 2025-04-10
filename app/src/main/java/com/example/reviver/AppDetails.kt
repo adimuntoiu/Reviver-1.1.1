@@ -7,5 +7,5 @@ data class AppDetails(
     var mode: String,
     var maxOpens: Int = 0,          // New property for Mode 2
     var currentOpens: Int = 0,     // To track current count
-    var backgroundUri: String? = null
+    var background: String? = null
 )
