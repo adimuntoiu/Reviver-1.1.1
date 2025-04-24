@@ -2,8 +2,8 @@
     <string name="app_name">Reviver</string>
     <string name="accessibility_service_description">This service helps monitor app usage.</string>
     <string-array name="modes_array">
-        <item>Mode 1</item>
-        <item>Mode 2</item>
-        <item>Mode 3</item>
+        <item>Mode 1 (Time Limit)</item>
+        <item>Mode 2 (Launch Limit)</item>
+        <item>Mode 3 (Password Protected)</item>
     </string-array>
 </resources>

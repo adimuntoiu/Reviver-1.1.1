@@ -19,14 +19,17 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:layout_marginBottom="32dp"
-        android:padding="30dp"/>
+        android:paddingLeft="10px"
+        android:paddingRight="10px"
+        android:paddingBottom="50px"/>
 
     <Button
         android:id="@+id/changeBackgroundButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Change Background"
-        android:layout_marginTop="12dp"/>
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="50px"/>
 
     <Button
         android:id="@+id/removeBackgroundButton"
@@ -40,6 +43,22 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Launch limit (Mode 2)"
-        android:inputType="number" />
+        android:inputType="number"
+        android:layout_marginBottom="50px"
+        />
 
+    <EditText
+        android:id="@+id/passwordInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Set password"
+        android:inputType="textPassword"/>
+
+    <TextView
+        android:id="@+id/yourPassword"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="Your password is:"
+        android:textSize="50px"
+    />
 </LinearLayout>

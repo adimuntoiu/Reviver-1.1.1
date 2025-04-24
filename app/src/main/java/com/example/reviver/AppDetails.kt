@@ -4,8 +4,9 @@ data class AppDetails(
     val packageName: String,
     val appName: String,
     var timeLimit: Int,
-    var mode: String,
-    var maxOpens: Int = 0,          // New property for Mode 2
-    var currentOpens: Int = 0,     // To track current count
-    var background: String? = null
+    var mode: String = "Mode 1 (Time Limit)",
+    var maxOpens: Int = 0,
+    var currentOpens: Int = 0,
+    var background: String? = null,
+    var password: String? = ""
 )
