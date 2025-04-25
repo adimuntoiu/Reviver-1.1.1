@@ -7,6 +7,5 @@ data class AppDetails(
     var mode: String = "Mode 1 (Time Limit)",
     var maxOpens: Int = 0,
     var currentOpens: Int = 0,
-    var background: String? = null,
     var password: String? = ""
 )

@@ -17,13 +17,14 @@ import android.content.Intent
 import android.widget.EditText
 import android.widget.Toast
 import android.view.inputmethod.InputMethodManager
+import android.util.Log
 
 class Overlay(private val context: Context) {
 
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
 
-    fun showOverlay(message: String, backgroundUri: String?, app: AppDetails? = null) {
+    fun showOverlay(message: String, app: AppDetails? = null) {
         if (overlayView != null) {
             return  // Avoid showing multiple overlays
         }
@@ -35,18 +36,6 @@ class Overlay(private val context: Context) {
         val passwordInput = overlayView!!.findViewById<EditText>(R.id.passwordInput)
         val submitButton = overlayView!!.findViewById<Button>(R.id.submitButton)
         val forgotPassword = overlayView!!.findViewById<Button>(R.id.forgotPassword)
-
-
-        try {
-            backgroundUri?.let { uriString: String ->
-                context.contentResolver.openInputStream(Uri.parse(uriString))?.use { stream ->
-                    val bitmap = BitmapFactory.decodeStream(stream)
-                    rootLayout.background = BitmapDrawable(context.resources, bitmap)
-                }
-            } ?: rootLayout.setBackgroundResource(R.drawable.default_background)
-        } catch (e: Exception) {
-            rootLayout.setBackgroundResource(R.drawable.default_background)
-        }
 
         passwordInput.isEnabled = true
         passwordInput.isFocusable = true
@@ -108,6 +97,10 @@ class Overlay(private val context: Context) {
                     removeOverlay()
                     sendToAppDetails(app)
                 }
+                passwordInput.visibility = View.VISIBLE
+                submitButton.visibility = View.VISIBLE
+                forgotPassword.visibility = View.VISIBLE
+                closeButton.visibility = View.GONE
             }
 
             "Mode 2 (Launch Limit)" -> {
@@ -115,6 +108,7 @@ class Overlay(private val context: Context) {
                 passwordInput.visibility = View.GONE
                 submitButton.visibility = View.GONE
                 closeButton.visibility = View.VISIBLE
+                forgotPassword.visibility = View.GONE
                 messageTextView.text = "$message\nCurrent opens: ${app.currentOpens}/${app.maxOpens}"
                 setupRandomCloseButton(closeButton)
             }
@@ -123,6 +117,7 @@ class Overlay(private val context: Context) {
                 // Default mode (Time Limit)
                 passwordInput.visibility = View.GONE
                 submitButton.visibility = View.GONE
+                forgotPassword.visibility = View.GONE
                 closeButton.visibility = View.VISIBLE
                 setupRandomCloseButton(closeButton)
             }
@@ -148,9 +143,6 @@ class Overlay(private val context: Context) {
             windowManager?.removeView(overlayView)
             overlayView = null
         }
-    }
-    private fun setDefaultBackground(layout: RelativeLayout?) {
-        layout?.setBackgroundResource(MainActivity.DEFAULT_BACKGROUND)
     }
     private fun setupRandomCloseButton(button: Button) {
         val params = button.layoutParams as RelativeLayout.LayoutParams

@@ -39,23 +39,15 @@ class MainActivity : AppCompatActivity() {
     private val appListContainer: LinearLayout by lazy {
         findViewById(R.id.appListContainer)
     }
-    // val backgroundImage: ImageView = findViewById(R.id.backgroundImage)
     private lateinit var appListScrollView: ScrollView
 
     private var appEdited: Boolean = false
     private val appExists: Boolean = false
     private val hasImagePermission: Boolean = false
-    private val BACKGROUND_IMAGE_REQUEST_CODE = 101
-    private lateinit var backgroundImage: ImageView
-
 
     companion object {
         private const val APP_PICKER_REQUEST_CODE = 1
-        val DEFAULT_BACKGROUND = R.drawable.default_background
-        private const val BACKGROUND_KEY = "background"
         private const val REQUEST_IMAGE_PERMISSION = 1001
-        private const val PICK_IMAGE_REQUEST = 1002
-        private const val BACKGROUND_PICKER_REQUEST_CODE = 1010
     }
 
     private var currentEditedApp: AppDetails? = null
@@ -204,16 +196,7 @@ class MainActivity : AppCompatActivity() {
         val timeLimitInput = dialogLayout.findViewById<EditText>(R.id.timeLimitInput)
         val modeSpinner = dialogLayout.findViewById<Spinner>(R.id.modeSpinner)
         val maxOpensInput = dialogLayout.findViewById<EditText>(R.id.maxOpensInput)
-        val changeBackgroundButton = dialogLayout.findViewById<Button>(R.id.changeBackgroundButton)
-        val removeBackgroundButton = dialogLayout.findViewById<Button>(R.id.removeBackgroundButton)
-
         currentEditedApp = appDetails
-
-        fun updateBackgroundButtons() {
-            val hasBackground = !appDetails?.background.isNullOrEmpty()
-            removeBackgroundButton.visibility = if (hasBackground) View.VISIBLE else View.GONE
-        }
-
 
         // Set up spinner
         ArrayAdapter.createFromResource(
@@ -237,19 +220,6 @@ class MainActivity : AppCompatActivity() {
 
         builder.setView(dialogLayout)
 
-        changeBackgroundButton.setOnClickListener {
-            Log.d("AppDetailsDialog", "Change Background button clicked")
-            try {
-                // Create an intent to pick an image
-                val intent = Intent(Intent.ACTION_PICK).apply {
-                    type = "image/*"
-                }
-                startActivityForResult(intent, BACKGROUND_PICKER_REQUEST_CODE)
-            } catch (e: Exception) {
-                Log.e("AppDetailsDialog", "Error launching gallery: ${e.localizedMessage}")
-                Toast.makeText(this, "Error opening gallery", Toast.LENGTH_SHORT).show()
-            }
-        }
 
         builder.setPositiveButton(if (isEditMode) "Save" else "Add") { _, _ ->
             val timeLimit = timeLimitInput.text.toString().toIntOrNull() ?: 0
@@ -271,7 +241,6 @@ class MainActivity : AppCompatActivity() {
                     mode = mode,
                     maxOpens = maxOpens,
                     currentOpens = 0,
-                    background = appDetails?.background,
                     password = appDetails?.password)
                 selectedApps.add(newApp)
                 addAppToMainLayout(newApp)
@@ -304,6 +273,9 @@ class MainActivity : AppCompatActivity() {
         val yourPassword = dialogLayout.findViewById<TextView>(R.id.yourPassword)
         val modesArray = resources.getStringArray(R.array.modes_array)
         val modeIndex = modesArray.indexOf(appDetails.mode)
+        val yourPasswordView  = dialogLayout.findViewById<TextView>(R.id.yourPassword)
+        val passwordInput     = dialogLayout.findViewById<EditText>(R.id.passwordInput)
+
 
         // Set initial values
         timeLimitInput.setText(appDetails.timeLimit.toString())
@@ -320,14 +292,11 @@ class MainActivity : AppCompatActivity() {
         }
         modeSpinner.setSelection(resources.getStringArray(R.array.modes_array).indexOf(appDetails.mode))
         modeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (modesArray.getOrNull(position)?.contains("Mode 2 (Launch Limit)", ignoreCase = true) == true) {
-                    maxOpensInput.visibility = View.VISIBLE
-                } else {
-                    maxOpensInput.visibility = View.GONE
-                }
-                Log.d("editAppDetailsDialog", "Spinner selected: '${parent?.getItemAtPosition(position)}'; maxOpensInput visibility: " +
-                        if (maxOpensInput.visibility == View.VISIBLE) "VISIBLE" else "GONE")
+            override fun onItemSelected(p: AdapterView<*>, v: View?, pos: Int, id: Long) {
+                val selected = modeSpinner.selectedItem.toString()
+                maxOpensInput.visibility = if (selected.startsWith("Mode 2")) View.VISIBLE else View.GONE
+                passwordInput   .visibility = if (selected.startsWith("Mode 3")) View.VISIBLE else View.GONE
+                yourPasswordView.visibility = if (selected.startsWith("Mode 3")) View.VISIBLE else View.GONE
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -337,11 +306,21 @@ class MainActivity : AppCompatActivity() {
         builder.setPositiveButton("Save") { _, _ ->
             val timeLimit = timeLimitInput.text.toString().toIntOrNull() ?: 0
             val mode = modeSpinner.selectedItem.toString()
-            val maxOpens = if (mode == "Mode 2 (Launch Limit)") {
-                maxOpensInput.text.toString().toIntOrNull() ?: 0
-            } else 0
+            val maxOpens = maxOpensInput.text.toString().toIntOrNull() ?: 0
             val passwordInput = dialogLayout.findViewById<EditText>(R.id.passwordInput)
             val password = passwordInput.text.toString().trim()
+
+            if (appDetails != null) {
+                appDetails.timeLimit = timeLimit
+                appDetails.mode = mode
+                appDetails.maxOpens = maxOpens
+                // Make sure currentOpens is properly initialized for Mode 2
+                if (mode == "Mode 2 (Launch Limit)" && appDetails.currentOpens <= 0) {
+                    appDetails.currentOpens = 0
+                }
+                saveSelectedApps()
+                refreshAppList()
+            }
 
             // Update the app details
             appDetails.timeLimit = timeLimit
@@ -410,18 +389,6 @@ class MainActivity : AppCompatActivity() {
                 Log.e("MainActivity", "App not found: $packageName")
             }
         }
-        if (requestCode == BACKGROUND_PICKER_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
-            val uri = data.data
-            Log.d("onActivityResult", "Selected background image URI: $uri")
-
-            currentEditedApp?.let {
-                it.background = uri.toString()
-                saveSelectedApps()
-                updateOverlayBackground()
-                Log.d("onActivityResult", "Background updated for ${it.appName}")
-            }
-        }
-
     }
 
     private fun addAppToMainLayout(appDetails: AppDetails) {
@@ -480,7 +447,11 @@ class MainActivity : AppCompatActivity() {
         // App settings
         val settingsView = TextView(this).apply {
             id = View.generateViewId()
-            text = "Limit: ${appDetails.timeLimit} seconds, Mode: ${appDetails.mode}" // Show settings here
+            text = if (appDetails.mode == "Mode 2 (Launch Limit)") {
+                "Max Opens: ${appDetails.maxOpens}, Current: ${appDetails.currentOpens}"
+            } else {
+                "Limit: ${appDetails.timeLimit} seconds, Mode: ${appDetails.mode}"
+            }
             textSize = 14f
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 8
@@ -569,18 +540,29 @@ class MainActivity : AppCompatActivity() {
                     put("mode", app.mode)
                     put("maxOpens", app.maxOpens)
                     put("currentOpens", app.currentOpens)
-                    put("background", app.background)
                     put("password", app.password)
                 })
             }
 
         }
 
-        sharedPrefs.edit().apply {
-            putString("selectedApps", jsonArray.toString())
-            commit()
-            apply()
+        Log.d("SaveApps", "Saving JSON: ${jsonArray.toString()}")
+
+        // Use commit() to ensure immediate write
+        val editor = sharedPrefs.edit()
+        editor.putString("selectedApps", jsonArray.toString())
+        val success = editor.commit()
+
+        if (success) {
+            Log.d("SaveApps", "Successfully saved app data")
+        } else {
+            Log.e("SaveApps", "Failed to save app data")
         }
+
+        // Verify save by immediately reading back
+        val savedJson = sharedPrefs.getString("selectedApps", "")
+        Log.d("SaveApps", "Verification - Read back: ${savedJson?.take(100)}...")
+
         val appDoesntExistText = findViewById<TextView>(R.id.appDoesntExistText)
         if (hasApps()) {
             appDoesntExistText.visibility = View.INVISIBLE
@@ -591,9 +573,8 @@ class MainActivity : AppCompatActivity() {
 
         // Verify save
         Log.d("SaveDebug", "Saved apps: ${sharedPrefs.getString("selectedApps", "")}")
-        updateAppExists()
+        refreshAppList()
     }
-
     private fun loadSelectedApps() {
         runCatching {
             val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
@@ -614,7 +595,6 @@ class MainActivity : AppCompatActivity() {
                                     mode = obj.getString("mode"),
                                     maxOpens = obj.optInt("maxOpens", 0),
                                     currentOpens = obj.optInt("currentOpens", 0),
-                                    background = obj.optString("background", null),
                                     password = obj.optString("password", "")
                                 )
                                 )
@@ -741,19 +721,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateOverlayBackground() {
-        currentEditedApp?.let { app ->
-            Intent(this, Overlay::class.java).apply {
-                putExtra(BACKGROUND_KEY, app.background)
-                putExtra("packageName", app.packageName)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(this)
-                } else {
-                    startService(this)
-                }
-            }
-        }
-    }
     private fun requestImagePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissions(
@@ -767,18 +734,6 @@ class MainActivity : AppCompatActivity() {
             )
         }
         val hasImagePermission = true;
-    }
-
-    private fun openGalleryForImage() {
-        try {
-            val intent = Intent(Intent.ACTION_PICK).apply {
-                type = "image/*"
-            }
-            Log.d("ChangeBackground", "Launching gallery intent.")
-            startActivityForResult(intent, BACKGROUND_IMAGE_REQUEST_CODE)
-        } catch (e: Exception) {
-            Log.e("ChangeBackground", "Error launching gallery: ${e.message}")
-        }
     }
 
     private fun loadAndDisplaySelectedApps() {

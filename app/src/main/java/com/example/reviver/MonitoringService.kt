@@ -14,7 +14,8 @@ import androidx.core.app.NotificationCompat
 import android.provider.Settings
 import org.json.JSONArray
 import org.json.JSONObject
-import com.example.reviver.AppDetails
+import android.content.pm.PackageManager
+import android.app.usage.UsageEvents
 
 class MonitoringService : Service() {
 
@@ -63,21 +64,98 @@ class MonitoringService : Service() {
         val currentPackageName = getLastUsedApp() ?: return
         val app = monitoredApps.find { it.packageName == currentPackageName } ?: return
 
-        if (currentPackageName != lastPackageName) {
-            lastPackageName = currentPackageName
-            lastPackageStartTime = System.currentTimeMillis()
+        when (app.mode) {
+            "Mode 2 (Launch Limit)" -> {
+                // For Mode 2, we use a dedicated function that properly counts launches
+                checkAndUpdateAppLaunches(app)
+            }
+            else -> {
+                // For Mode 1 (Time Limit) and Mode 3 (Password)
+                // Use the original approach with time-based tracking
+                if (currentPackageName != lastPackageName) {
+                    lastPackageName = currentPackageName
+                    lastPackageStartTime = System.currentTimeMillis()
+                }
 
-            if (app.mode == "Mode 2 (Launch Limit)") {
-                incrementLaunchCount(app)
+                // Handle the appropriate mode
+                when (app.mode) {
+                    "Mode 1 (Time Limit)" -> handleTimeLimit(app)
+                    "Mode 3 (Password Protected)" -> handlePasswordMode(app)
+                }
+            }
+        }
+    }
+    private fun checkAndUpdateAppLaunches(app: AppDetails) {
+        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val endTime = System.currentTimeMillis()
+        // Look back 12 hours (adjust timeframe as needed)
+        val startTime = endTime - 1000L * 60 * 60 * 12
+
+        // Query for specific app events
+        val usageEvents = usm.queryEvents(startTime, endTime)
+        val event = android.app.usage.UsageEvents.Event()
+
+        // Track foreground events for our specific app
+        val foregroundEventTimes = mutableListOf<Long>()
+
+        while (usageEvents.hasNextEvent()) {
+            usageEvents.getNextEvent(event)
+
+            // Only process events for our target app
+            if (event.packageName == app.packageName) {
+                if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                    foregroundEventTimes.add(event.timeStamp)
+                    Log.d("LaunchTracker", "Foreground event for ${app.appName} at ${event.timeStamp}")
+                }
             }
         }
 
-        if (app.packageName!="Reviver") {
-            when (app.mode) {
-                "Mode 1 (Time Limit)" -> handleTimeLimit(app)
-                "Mode 2 (Launch Limit)" -> handleLaunchLimit(app,currentPackageName)
-                "Mode 3 (Password Protected)" -> handlePasswordMode(app)
+        // If we have foreground events and the most recent one is new
+        if (foregroundEventTimes.isNotEmpty()) {
+            val mostRecentLaunch = foregroundEventTimes.maxOrNull() ?: 0L
+            val prefs = getSharedPreferences("LaunchTracking", Context.MODE_PRIVATE)
+            val lastProcessedLaunch = prefs.getLong("last_launch_${app.packageName}", 0L)
+
+            Log.d("LaunchTracker", "Most recent: $mostRecentLaunch, Last processed: $lastProcessedLaunch")
+
+            // If this is a new launch we haven't counted yet
+            if (mostRecentLaunch > lastProcessedLaunch) {
+                // Increment the counter
+                app.currentOpens++
+                Log.d("LaunchTracker", "NEW LAUNCH for ${app.appName}, count now: ${app.currentOpens}")
+
+                // Save the updated count to app settings
+                saveUpdatedAppCount(app)
+
+                // Remember that we've processed this launch
+                prefs.edit().putLong("last_launch_${app.packageName}", mostRecentLaunch).commit()
+
+                // Check if we need to show the overlay
+                if (app.currentOpens > app.maxOpens) {
+                    showOverlay("${app.appName} exceeded open limit")
+                }
             }
+        }
+    }
+    private fun saveUpdatedAppCount(app: AppDetails) {
+        val prefs = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        try {
+            val jsonArray = JSONArray(prefs.getString("selectedApps", "[]"))
+
+            // Find and update the app's entry
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                if (obj.getString("packageName") == app.packageName) {
+                    obj.put("currentOpens", app.currentOpens)
+                    break
+                }
+            }
+
+            // Save the updated JSON
+            val success = prefs.edit().putString("selectedApps", jsonArray.toString()).commit()
+            Log.d("LaunchTracker", "Saved count for ${app.appName}: ${app.currentOpens}, success=$success")
+        } catch (e: Exception) {
+            Log.e("LaunchTracker", "Error saving app count", e)
         }
     }
     private fun handleTimeLimit(app: AppDetails){
@@ -87,20 +165,13 @@ class MonitoringService : Service() {
             lastPackageStartTime = System.currentTimeMillis()
         }
     }
-
-    private fun handleLaunchLimit(app: AppDetails, currentPackageName: String){
-        if (lastCountedPackage != currentPackageName) {
-            incrementLaunchCount(app)
-            lastCountedPackage = currentPackageName
-        }
-
+    private fun handleLaunchLimit(app: AppDetails){
         if (app.currentOpens > app.maxOpens) {
             showOverlay("${app.appName} exceeded open limit")
         }
     }
 
     private fun handlePasswordMode(app: AppDetails) {
-        val backgroundUri = app.background
         if (app.password.isNullOrEmpty()) {
             // If no password set, fallback to time limit
             handleTimeLimit(app)
@@ -120,17 +191,29 @@ class MonitoringService : Service() {
         }
         val selectedApps = loadSelectedApps()
         val currentApp = monitoredApps.find { it.packageName == lastPackageName }
-        val backgroundUri = currentApp?.background
-        overlay.showOverlay(message, backgroundUri, currentApp)
+        overlay.showOverlay(message)
     }
 
     private fun getLastUsedApp(): String? {
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val end = System.currentTimeMillis()
-        val begin = end - 1000 * 60 * 60 * 24
-        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, begin, end)
+        val endTime = System.currentTimeMillis()
+        // look back 12 hours (adjust as needed)
+        val startTime = endTime - 1000L * 60 * 60 * 12
 
-        return stats?.maxByOrNull { it.lastTimeUsed }?.packageName
+        val usageEvents = usm.queryEvents(startTime, endTime)
+        val event = UsageEvents.Event()
+        var lastPackage: String? = null
+
+        // Walk through all events; the final MOVE_TO_FOREGROUND is our target
+        while (usageEvents.hasNextEvent()) {
+            usageEvents.getNextEvent(event)
+            if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                lastPackage = event.packageName
+            }
+        }
+
+        Log.d("MonitoringService", "getLastUsedApp(): $lastPackage")
+        return lastPackage
     }
 
     private fun loadAppSettings() {
@@ -148,7 +231,6 @@ class MonitoringService : Service() {
                             mode = obj.getString("mode"),
                             maxOpens = obj.optInt("maxOpens", 0),
                             currentOpens = obj.optInt("currentOpens", 0),
-                            background = obj.optString("background", null),
                             password = obj.optString("password", "")
                         )
                     }
@@ -178,7 +260,6 @@ class MonitoringService : Service() {
             obj.put("mode", app.mode)
             obj.put("maxOpens", app.maxOpens)
             obj.put("currentOpens", app.currentOpens)
-            obj.put("background", app.background ?: "")
             obj.put("password", app.password)
             array.put(obj)
         }
@@ -227,7 +308,6 @@ class MonitoringService : Service() {
                             mode = obj.getString("mode"),
                             maxOpens = obj.optInt("maxOpens", 0),
                             currentOpens = obj.optInt("currentOpens", 0),
-                            background = obj.optString("background"),
                             password = obj.optString("password")
                         )
                     }

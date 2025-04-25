@@ -25,7 +25,6 @@ object AppPreferences {
                         put("mode", app.mode)
                         put("maxOpens", app.maxOpens)
                         put("currentOpens", app.currentOpens)
-                        put("background", app.background ?: "")
                         put("password", app.password ?: "")
                     })
                 }
@@ -61,7 +60,6 @@ object AppPreferences {
                             mode = obj.getString("mode"),
                             maxOpens = obj.optInt("maxOpens", 0),
                             currentOpens = obj.optInt("currentOpens", 0),
-                            background = obj.optString("background", ""),
                             password = obj.optString("password", "")
                         )
                     )
