@@ -51,33 +51,50 @@ class MonitoringService : Service() {
         }
     }
 
+    private fun checkAndResetDailyLaunchCounts() {
+        val prefs = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
+        val lastResetTime = prefs.getLong("lastResetTime", 0L)
+        val now = System.currentTimeMillis()
+
+        if (now - lastResetTime >= 24 * 60 * 60 * 1000L) { // 24 hours passed
+            Log.d("LaunchReset", "Resetting all currentOpens counters (24 hours passed)")
+
+            for (app in monitoredApps) {
+                app.currentOpens = 0
+            }
+            saveLaunchCounts()
+
+            prefs.edit()
+                .putLong("lastResetTime", now)
+                .apply()
+        }
+    }
+
+
     private val monitorTask = object : Runnable {
         override fun run() {
+            checkAndResetDailyLaunchCounts()
             monitorAppUsage()
             handler.postDelayed(this, interval)
         }
     }
 
     private fun monitorAppUsage() {
-        loadAppSettings() // Reload every time in case settings changed
+        loadAppSettings()
 
         val currentPackageName = getLastUsedApp() ?: return
         val app = monitoredApps.find { it.packageName == currentPackageName } ?: return
 
         when (app.mode) {
             "Mode 2 (Launch Limit)" -> {
-                // For Mode 2, we use a dedicated function that properly counts launches
                 checkAndUpdateAppLaunches(app)
             }
             else -> {
-                // For Mode 1 (Time Limit) and Mode 3 (Password)
-                // Use the original approach with time-based tracking
                 if (currentPackageName != lastPackageName) {
                     lastPackageName = currentPackageName
                     lastPackageStartTime = System.currentTimeMillis()
                 }
-
-                // Handle the appropriate mode
+                
                 when (app.mode) {
                     "Mode 1 (Time Limit)" -> handleTimeLimit(app)
                     "Mode 3 (Password Protected)" -> handlePasswordMode(app)
@@ -191,7 +208,11 @@ class MonitoringService : Service() {
         }
         val selectedApps = loadSelectedApps()
         val currentApp = monitoredApps.find { it.packageName == lastPackageName }
-        overlay.showOverlay(message)
+        if (currentApp != null) {
+            overlay.showOverlay(message, currentApp) // <-- FIXED
+        } else {
+            overlay.showOverlay(message) // fallback if somehow app not found
+        }
     }
 
     private fun getLastUsedApp(): String? {

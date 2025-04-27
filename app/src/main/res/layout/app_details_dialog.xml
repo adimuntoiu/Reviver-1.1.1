@@ -1,16 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="400dp"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:maxHeight="300dp"
     android:orientation="vertical"
-    android:background="@drawable/app_details_test_1"
+    android:background="@drawable/show_app_details_background"
     android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Edit App Details"
+        android:textSize="18sp"
+        android:gravity="center"
+        android:layout_marginBottom="16dp"
+        android:fontFamily="@font/instrument_sans"/>
 
     <EditText
         android:id="@+id/timeLimitInput"
         android:layout_width="match_parent"
         android:layout_height="40dp"
-        android:hint="Time limit (in seconds)"
+        android:hint="Time limit (Seconds before the overlay)"
         android:background="@drawable/edit_text_background"
         android:fontFamily="@font/instrument_sans"
         android:inputType="number"
@@ -23,21 +33,20 @@
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:background="@drawable/edit_text_background"
-        android:hint="Launch limit (Mode 2)"
+        android:hint="Launch limit (Maximum number of opens)"
         android:inputType="number"
         android:layout_marginBottom="12dp"
-        android:paddingLeft="20dp"
-        />
+        android:paddingLeft="20dp"/>
 
     <Spinner
         android:id="@+id/modeSpinner"
         android:layout_width="match_parent"
         android:paddingTop="13dp"
         android:layout_height="60dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="32dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="12dp"
         android:paddingLeft="30px"
-        android:background="@drawable/edit_text_background"
+        android:background="@drawable/edit_text_background_2"
         android:paddingRight="30px"
         android:paddingBottom="50px"/>
 
@@ -49,14 +58,44 @@
         android:background="@drawable/edit_text_background"
         android:hint="Set password"
         android:paddingLeft="20dp"
-        android:inputType="textPassword"/>
+        android:inputType="textPassword"
+        android:layout_marginBottom="8dp"/>
 
     <TextView
         android:id="@+id/yourPassword"
         android:fontFamily="@font/instrument_sans"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:text="Your password is:"
-        android:textSize="50px"
-    />
+        android:textSize="14sp"
+        android:layout_marginBottom="16dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <Button
+            android:background="@drawable/savebutton"
+            android:id="@+id/saveButton"
+            android:layout_width="168dp"
+            android:layout_height="46dp"
+            android:layout_margin="4dp"/>
+
+        <Button
+            android:background="@drawable/removebutton"
+            android:id="@+id/removeButton"
+            android:layout_width="167dp"
+            android:layout_height="46dp"
+            android:layout_margin="4dp"/>
+    </LinearLayout>
+    <Button
+        android:background="@drawable/cancelbutton"
+        android:id="@+id/cancelButton"
+        android:layout_width="346dp"
+        android:layout_height="56dp"
+        android:layout_marginLeft="2dp"
+        android:fontFamily="@font/instrument_sans"
+        />
 </LinearLayout>

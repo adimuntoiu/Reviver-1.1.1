@@ -73,6 +73,7 @@ class Overlay(private val context: Context) {
                 passwordInput.visibility = View.VISIBLE
                 submitButton.visibility = View.VISIBLE
                 closeButton.visibility = View.GONE
+                forgotPassword.visibility = View.VISIBLE
 
                 // Enable input
                 passwordInput.isEnabled = true
@@ -93,6 +94,7 @@ class Overlay(private val context: Context) {
                         passwordInput.requestFocus()
                     }
                 }
+
                 forgotPassword.setOnClickListener {
                     removeOverlay()
                     sendToAppDetails(app)

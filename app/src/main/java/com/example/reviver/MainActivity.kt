@@ -31,6 +31,12 @@ import android.content.pm.ApplicationInfo
 import android.view.ViewGroup
 import android.os.Build
 import android.Manifest
+import android.app.Dialog
+import android.view.Window
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.view.Gravity
+import androidx.core.content.ContextCompat
 
 
 class MainActivity : AppCompatActivity() {
@@ -44,6 +50,8 @@ class MainActivity : AppCompatActivity() {
     private var appEdited: Boolean = false
     private val appExists: Boolean = false
     private val hasImagePermission: Boolean = false
+    private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
+
 
     companion object {
         private const val APP_PICKER_REQUEST_CODE = 1
@@ -193,9 +201,7 @@ class MainActivity : AppCompatActivity() {
         builder.setTitle(if (isEditMode) "Edit ${appDetails?.appName}" else "Add New App")
 
         val dialogLayout = layoutInflater.inflate(R.layout.app_details_dialog, null)
-        val timeLimitInput = dialogLayout.findViewById<EditText>(R.id.timeLimitInput)
         val modeSpinner = dialogLayout.findViewById<Spinner>(R.id.modeSpinner)
-        val maxOpensInput = dialogLayout.findViewById<EditText>(R.id.maxOpensInput)
         currentEditedApp = appDetails
 
         // Set up spinner
@@ -208,80 +214,40 @@ class MainActivity : AppCompatActivity() {
             modeSpinner.adapter = adapter
         }
 
-        // Set initial values if editing
-        if (isEditMode) {
-            timeLimitInput.setText(appDetails?.timeLimit?.toString())
-            maxOpensInput.setText(appDetails?.maxOpens?.toString())
-            // Fixed line - get modes array first, then find index
-            val modesArray = resources.getStringArray(R.array.modes_array)
-            val modeIndex = modesArray.indexOf(appDetails?.mode ?: "Mode 1 (Time Limit)")
-            modeSpinner.setSelection(if (modeIndex >= 0) modeIndex else 0)
-        }
-
         builder.setView(dialogLayout)
-
-
-        builder.setPositiveButton(if (isEditMode) "Save" else "Add") { _, _ ->
-            val timeLimit = timeLimitInput.text.toString().toIntOrNull() ?: 0
-            val mode = modeSpinner.selectedItem.toString()
-            val maxOpens = if (mode == "Mode 2 (Launch Limit)") maxOpensInput.text.toString().toIntOrNull() ?: 0 else 0
-            val password = appDetails?.password
-            if (isEditMode && appDetails != null) {
-                appDetails.timeLimit = timeLimit
-                appDetails.mode = mode
-                appDetails.maxOpens = maxOpens
-                appDetails.password = password
-                saveSelectedApps()
-                refreshAppList()
-            } else {
-                val newApp = AppDetails(
-                    packageName = appDetails?.packageName ?: "",
-                    appName = appDetails?.appName ?: "",
-                    timeLimit = timeLimit,
-                    mode = mode,
-                    maxOpens = maxOpens,
-                    currentOpens = 0,
-                    password = appDetails?.password)
-                selectedApps.add(newApp)
-                addAppToMainLayout(newApp)
-            }
-        }
-
         builder.setNegativeButton("Cancel", null)
-
-        if (isEditMode) {
-            builder.setNeutralButton("Remove") { _, _ ->
-                appDetails?.let {
-                    selectedApps.remove(it)
-                    saveSelectedApps()
-                    refreshAppList()
-                }
-            }
-        }
         builder.create().show()
     }
 
 
     private fun editAppDetailsDialog(appDetails: AppDetails, appItemView: ConstraintLayout) {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("Edit Details for ${appDetails.appName}")
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.app_details_dialog)
 
-        val dialogLayout = LayoutInflater.from(this).inflate(R.layout.app_details_dialog, null)
-        val timeLimitInput = dialogLayout.findViewById<EditText>(R.id.timeLimitInput)
-        val modeSpinner = dialogLayout.findViewById<Spinner>(R.id.modeSpinner)
-        val maxOpensInput = dialogLayout.findViewById<EditText>(R.id.maxOpensInput)
-        val yourPassword = dialogLayout.findViewById<TextView>(R.id.yourPassword)
-        val modesArray = resources.getStringArray(R.array.modes_array)
-        val modeIndex = modesArray.indexOf(appDetails.mode)
-        val yourPasswordView  = dialogLayout.findViewById<TextView>(R.id.yourPassword)
-        val passwordInput     = dialogLayout.findViewById<EditText>(R.id.passwordInput)
+        fun Int.dpToPx(context: Context): Int {
+            return (this * context.resources.displayMetrics.density).toInt()
+        }
+        // Set the dialog window size
+        dialog.window?.apply {
+            setLayout(380.dpToPx(context), 400.dpToPx(context))
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setGravity(Gravity.CENTER)
+        }
 
 
-        // Set initial values
+        // Find and set up views
+        val timeLimitInput = dialog.findViewById<EditText>(R.id.timeLimitInput)
+        val modeSpinner = dialog.findViewById<Spinner>(R.id.modeSpinner)
+        val maxOpensInput = dialog.findViewById<EditText>(R.id.maxOpensInput)
+        val yourPasswordView = dialog.findViewById<TextView>(R.id.yourPassword)
+        val passwordInput = dialog.findViewById<EditText>(R.id.passwordInput)
+
+        // Set initial values - same as before
         timeLimitInput.setText(appDetails.timeLimit.toString())
         maxOpensInput.setText(appDetails.maxOpens.toString())
 
-        // Set up spinner
+        // Set up spinner - same as before
         ArrayAdapter.createFromResource(
             this,
             R.array.modes_array,
@@ -295,39 +261,42 @@ class MainActivity : AppCompatActivity() {
             override fun onItemSelected(p: AdapterView<*>, v: View?, pos: Int, id: Long) {
                 val selected = modeSpinner.selectedItem.toString()
                 maxOpensInput.visibility = if (selected.startsWith("Mode 2")) View.VISIBLE else View.GONE
-                passwordInput   .visibility = if (selected.startsWith("Mode 3")) View.VISIBLE else View.GONE
+                passwordInput.visibility = if (selected.startsWith("Mode 3")) View.VISIBLE else View.GONE
                 yourPasswordView.visibility = if (selected.startsWith("Mode 3")) View.VISIBLE else View.GONE
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        builder.setView(dialogLayout)
 
-        builder.setPositiveButton("Save") { _, _ ->
+        // Add buttons to your layout - you'll need to add these to your XML or add them programmatically
+        val saveButton = dialog.findViewById<Button>(R.id.saveButton) // Add this button to your XML
+        val removeButton = dialog.findViewById<Button>(R.id.removeButton) // Add this button to your XML
+        val cancelButton = dialog.findViewById<Button>(R.id.cancelButton) // Add this button to your XML
+
+        // Set password text
+        yourPasswordView.text = if (!appDetails.password.isNullOrEmpty()) {
+            "Current password: ${appDetails.password}"
+        } else {
+            "No password set"
+        }
+
+        // Set button click listeners
+        saveButton.setOnClickListener {
             val timeLimit = timeLimitInput.text.toString().toIntOrNull() ?: 0
             val mode = modeSpinner.selectedItem.toString()
             val maxOpens = maxOpensInput.text.toString().toIntOrNull() ?: 0
-            val passwordInput = dialogLayout.findViewById<EditText>(R.id.passwordInput)
             val password = passwordInput.text.toString().trim()
 
-            if (appDetails != null) {
-                appDetails.timeLimit = timeLimit
-                appDetails.mode = mode
-                appDetails.maxOpens = maxOpens
-                // Make sure currentOpens is properly initialized for Mode 2
-                if (mode == "Mode 2 (Launch Limit)" && appDetails.currentOpens <= 0) {
-                    appDetails.currentOpens = 0
-                }
-                saveSelectedApps()
-                refreshAppList()
-            }
-
-            // Update the app details
+            // Update app details
             appDetails.timeLimit = timeLimit
             appDetails.mode = mode
             appDetails.maxOpens = maxOpens
-            if(password!="") appDetails?.password = password
+            if (password != "") appDetails.password = password
 
+            // Make sure currentOpens is properly initialized for Mode 2
+            if (mode == "Mode 2 (Launch Limit)" && appDetails.currentOpens <= 0) {
+                appDetails.currentOpens = 0
+            }
 
             // Update the settings view
             val settingsView = appItemView.getChildAt(2) as? TextView
@@ -338,22 +307,22 @@ class MainActivity : AppCompatActivity() {
             }
 
             appEdited = true
-
             saveSelectedApps()
-        }
-        yourPassword.text = if (!appDetails.password.isNullOrEmpty()) {
-            "Current password: ${appDetails.password}"
-        } else {
-            "No password set"
+            refreshAppList()
+            dialog.dismiss()
         }
 
-        builder.setNegativeButton("Remove") { _, _ ->
+        removeButton.setOnClickListener {
             removeApp(appDetails)
             appListContainer.removeView(appItemView)
+            dialog.dismiss()
         }
 
-        builder.setNeutralButton("Cancel", null)
-        builder.create().show()
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -394,17 +363,6 @@ class MainActivity : AppCompatActivity() {
     private fun addAppToMainLayout(appDetails: AppDetails) {
         val packageManager = packageManager
         var packageName = appDetails.packageName
-        var appName = appDetails.appName
-        var appIcon: Drawable? = null
-
-        try {
-            appIcon = packageManager.getApplicationIcon(packageName)
-        } catch (e: PackageManager.NameNotFoundException) {
-            Log.e("MainActivity", "App not found: $packageName, assigning default name")
-            packageName = "com.android.${appDetails.appName.lowercase().replace(" ", "")}"
-            appName = "Unknown App (${appDetails.appName})" // Provide a fallback display name
-        }
-
 
         val appItemView = ConstraintLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -413,6 +371,8 @@ class MainActivity : AppCompatActivity() {
             ).apply {
                 setMargins(16, 16, 16, 16) // Increased margins
             }
+            setBackgroundResource(R.drawable.app_list_item_background)
+            setPadding(24,24,24,24)
         }
 
         // App Icon
@@ -440,6 +400,7 @@ class MainActivity : AppCompatActivity() {
             ellipsize = android.text.TextUtils.TruncateAt.END // Add "..." if the text is too long
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
                 marginEnd = 16 // Add margin between text and button
+                marginStart = 16
             }
         }
         appItemView.addView(nameView)
@@ -455,6 +416,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 14f
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 8
+                leftMargin = 20
             }
         }
         appItemView.addView(settingsView)
@@ -462,15 +424,18 @@ class MainActivity : AppCompatActivity() {
         // Remove Button
         val removeButton = Button(this).apply {
             id = View.generateViewId()
-            text = "Remove"
+            background = ContextCompat.getDrawable(context, R.drawable.remove_button_bg)
             setOnClickListener {
                 removeApp(appDetails)
                 appListContainer.removeView(appItemView)
             }
-            layoutParams = LayoutParams(
-                LayoutParams.WRAP_CONTENT,
-                LayoutParams.WRAP_CONTENT
-            )
+            layoutParams = LayoutParams(48.dp, 48.dp).apply {
+                // you can also add margins here
+                marginEnd = 8.dp
+                endToEnd = LayoutParams.PARENT_ID
+                topToTop = LayoutParams.PARENT_ID
+                bottomToBottom = LayoutParams.PARENT_ID
+            }
         }
         appItemView.addView(removeButton)
 

@@ -1,0 +1,50 @@
+<resources>
+    <string name="app_name">Reviver</string>
+    <string name="accessibility_service_description">Acest serviciu ajută la monitorizarea utilizării aplicațiilor.</string>
+    <string-array name="modes_array">
+        <item>Modul 1 (Limită de timp)</item>
+        <item>Modul 2 (Limită de lansare)</item>
+        <item>Modul 3 (Protejat cu parolă)</item>
+    </string-array>
+
+    <!-- Main UI -->
+    <string name="add_button">Adaugă</string>
+    <string name="app_doesnt_exist_text">Nicio aplicație adăugată! Apasă butonul de adăugare pentru a adăuga o aplicație.</string>
+    <string name="view_logs">Vezi jurnalele</string>
+
+    <!-- Navigation Menu -->
+    <string name="nav_home">Acasă</string>
+    <string name="nav_stats">Statistici</string>
+    <string name="nav_info">Informații</string>
+    <string name="nav_settings">Setări</string>
+
+    <!-- App Dialog -->
+    <string name="edit_app">Editează %1$s</string>
+    <string name="add_new_app">Adaugă aplicație nouă</string>
+    <string name="time_limit">Limită de timp (secunde)</string>
+    <string name="max_opens">Număr maxim de deschideri</string>
+    <string name="password">Parolă</string>
+    <string name="your_password">Parola actuală: %1$s</string>
+    <string name="no_password_set">Nicio parolă setată</string>
+    <string name="save">Salvează</string>
+    <string name="remove">Elimină</string>
+    <string name="cancel">Anulează</string>
+
+    <!-- Overlay -->
+    <string name="time_up">Timpul a expirat pentru %1$s</string>
+    <string name="open_limit_exceeded">%1$s a depășit limita de deschideri</string>
+    <string name="current_opens">Deschideri curente: %1$d/%2$d</string>
+    <string name="password_required">Parolă necesară pentru %1$s</string>
+    <string name="close">Închide</string>
+    <string name="submit">Trimite</string>
+    <string name="forgot_password">Am uitat parola</string>
+    <string name="wrong_password">Parolă greșită!</string>
+    <string name="could_not_open_settings">Nu s-au putut deschide setările aplicației</string>
+
+    <!-- Settings -->
+    <string name="language_settings">Setări limbă</string>
+    <string name="select_language">Alege limba</string>
+    <string name="english">Engleză</string>
+    <string name="romanian">Română</string>
+    <string name="language_changed">Limba a fost schimbată în %1$s</string>
+</resources>
