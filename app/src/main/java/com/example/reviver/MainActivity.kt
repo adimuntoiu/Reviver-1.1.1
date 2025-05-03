@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.widget.*
-import android.graphics.drawable.Drawable
 import androidx.appcompat.app.AppCompatActivity
 import android.net.Uri
 import android.util.Log
@@ -18,19 +17,14 @@ import android.view.LayoutInflater
 import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-import androidx.navigation.ui.NavigationUI
-import androidx.navigation.fragment.NavHostFragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.example.reviver.ui.HomeFragment
 import com.example.reviver.ui.StatsFragment
 import com.example.reviver.ui.InfoFragment
 import com.example.reviver.ui.SettingsFragment
 import androidx.fragment.app.Fragment
-import java.io.File
 import android.content.pm.ApplicationInfo
 import android.view.ViewGroup
-import android.os.Build
-import android.Manifest
 import android.app.Dialog
 import android.view.Window
 import android.graphics.Color
@@ -41,31 +35,19 @@ import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
     private val selectedApps = mutableListOf<AppDetails>() // List of selected apps
-    private val mode2LaunchCounts = mutableMapOf<String, Int>()
     private val appListContainer: LinearLayout by lazy {
         findViewById(R.id.appListContainer)
     }
-    private lateinit var appListScrollView: ScrollView
 
     private var appEdited: Boolean = false
-    private val appExists: Boolean = false
-    private val hasImagePermission: Boolean = false
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
-
-
-    companion object {
-        private const val APP_PICKER_REQUEST_CODE = 1
-        private const val REQUEST_IMAGE_PERMISSION = 1001
-    }
-
-    private var currentEditedApp: AppDetails? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        /// Trebuie sa avem permisiuniile necesare ca sa deschidem aplicatia
         checkAndRequestOverlayPermission()
-
         if (!hasUsageStatsPermission()) {
             requestUsageStatsPermission()
         } else {
@@ -73,21 +55,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         loadAndDisplaySelectedApps()
-
-        if (hasImagePermission != true){
-            requestImagePermission()
-        }
-
-        loadSelectedApps()
-
+        /// Butonul de adaugare a unei aplicatii acceseaza functia showAppSelectionDialog
         val addButton: Button = findViewById(R.id.addButton)
         addButton.setOnClickListener {
             showAppSelectionDialog()
         }
 
+        /// Aici schimbam elementele unei pagini din meniu
         val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottomNavigationView)
-
-        // Set up navigation listener
         bottomNavigationView.setOnItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.nav_home -> {
@@ -105,20 +80,10 @@ class MainActivity : AppCompatActivity() {
             }
             true
         }
-        val editAppPackage = intent.getStringExtra("EDIT_APP_PACKAGE")
-        if (!editAppPackage.isNullOrEmpty()) {
-            val appToEdit = selectedApps.find { it.packageName == editAppPackage }
-            if (appToEdit != null) {
-                appListContainer.post {
-                    showAppDetailsDialog(appToEdit)
-                }
-                Log.d("MainActivity", "Opening edit dialog for: ${appToEdit.appName}")
-            } else {
-                Log.w("MainActivity", "App not found in selected list for package: $editAppPackage")
-            }
-        }
+        handleEditAppIntent(intent)
     }
 
+    /// Meniu custom pentru a adauga o aplicatie
     private fun showAppSelectionDialog() {
         val packageManager = packageManager
         val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
@@ -195,31 +160,6 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showAppDetailsDialog(appDetails: AppDetails? = null) {
-        val builder = AlertDialog.Builder(this)
-        val isEditMode = appDetails != null
-        builder.setTitle(if (isEditMode) "Edit ${appDetails?.appName}" else "Add New App")
-
-        val dialogLayout = layoutInflater.inflate(R.layout.app_details_dialog, null)
-        val modeSpinner = dialogLayout.findViewById<Spinner>(R.id.modeSpinner)
-        currentEditedApp = appDetails
-
-        // Set up spinner
-        ArrayAdapter.createFromResource(
-            this,
-            R.array.modes_array,
-            android.R.layout.simple_spinner_item
-        ).also { adapter ->
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            modeSpinner.adapter = adapter
-        }
-
-        builder.setView(dialogLayout)
-        builder.setNegativeButton("Cancel", null)
-        builder.create().show()
-    }
-
-
     private fun editAppDetailsDialog(appDetails: AppDetails, appItemView: ConstraintLayout) {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -228,26 +168,22 @@ class MainActivity : AppCompatActivity() {
         fun Int.dpToPx(context: Context): Int {
             return (this * context.resources.displayMetrics.density).toInt()
         }
-        // Set the dialog window size
+
         dialog.window?.apply {
             setLayout(380.dpToPx(context), 400.dpToPx(context))
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setGravity(Gravity.CENTER)
         }
 
-
-        // Find and set up views
         val timeLimitInput = dialog.findViewById<EditText>(R.id.timeLimitInput)
         val modeSpinner = dialog.findViewById<Spinner>(R.id.modeSpinner)
         val maxOpensInput = dialog.findViewById<EditText>(R.id.maxOpensInput)
         val yourPasswordView = dialog.findViewById<TextView>(R.id.yourPassword)
         val passwordInput = dialog.findViewById<EditText>(R.id.passwordInput)
 
-        // Set initial values - same as before
         timeLimitInput.setText(appDetails.timeLimit.toString())
         maxOpensInput.setText(appDetails.maxOpens.toString())
 
-        // Set up spinner - same as before
         ArrayAdapter.createFromResource(
             this,
             R.array.modes_array,
@@ -261,6 +197,7 @@ class MainActivity : AppCompatActivity() {
             override fun onItemSelected(p: AdapterView<*>, v: View?, pos: Int, id: Long) {
                 val selected = modeSpinner.selectedItem.toString()
                 maxOpensInput.visibility = if (selected.startsWith("Mode 2")) View.VISIBLE else View.GONE
+                timeLimitInput.visibility = if (selected.startsWith("Mode 2")) View.GONE else View.VISIBLE
                 passwordInput.visibility = if (selected.startsWith("Mode 3")) View.VISIBLE else View.GONE
                 yourPasswordView.visibility = if (selected.startsWith("Mode 3")) View.VISIBLE else View.GONE
             }
@@ -280,35 +217,30 @@ class MainActivity : AppCompatActivity() {
             "No password set"
         }
 
-        // Set button click listeners
         saveButton.setOnClickListener {
             val timeLimit = timeLimitInput.text.toString().toIntOrNull() ?: 0
             val mode = modeSpinner.selectedItem.toString()
             val maxOpens = maxOpensInput.text.toString().toIntOrNull() ?: 0
             val password = passwordInput.text.toString().trim()
 
-            // Update app details
             appDetails.timeLimit = timeLimit
             appDetails.mode = mode
             appDetails.maxOpens = maxOpens
             if (password != "") appDetails.password = password
 
-            // Make sure currentOpens is properly initialized for Mode 2
             if (mode == "Mode 2 (Launch Limit)" && appDetails.currentOpens <= 0) {
                 appDetails.currentOpens = 0
             }
 
-            // Update the settings view
             val settingsView = appItemView.getChildAt(2) as? TextView
             settingsView?.text = if (mode == "Mode 2 (Launch Limit)") {
                 "Max Opens: $maxOpens, Current: ${appDetails.currentOpens}"
             } else {
-                "Limit: $timeLimit seconds, Mode: $mode"
+                "Limit: $timeLimit seconds, $mode"
             }
 
             appEdited = true
             saveSelectedApps()
-            refreshAppList()
             dialog.dismiss()
         }
 
@@ -325,45 +257,8 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        Log.d("onActivityResult", "Triggered with requestCode=$requestCode, resultCode=$resultCode, data=$data")
-
-        if (requestCode == APP_PICKER_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
-            val selectedComponent = data.component
-            val packageName = selectedComponent?.packageName ?: return
-            val packageManager = packageManager
-
-            try {
-                val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                val appName = packageManager.getApplicationLabel(appInfo).toString()
-
-                // Create a new AppDetails with default values
-                val newApp = AppDetails(
-                    packageName = packageName,
-                    appName = appName,
-                    timeLimit = 0,
-                    mode = "Mode 1 (Time Limit)",
-                    maxOpens = 0,
-                    currentOpens = 0,
-                    password = ""
-                )
-
-                // Show the dialog to configure the app
-                showAppDetailsDialog(newApp)
-
-            } catch (e: PackageManager.NameNotFoundException) {
-                Toast.makeText(this, "App not found!", Toast.LENGTH_SHORT).show()
-                Log.e("MainActivity", "App not found: $packageName")
-            }
-        }
-    }
-
     private fun addAppToMainLayout(appDetails: AppDetails) {
         val packageManager = packageManager
-        var packageName = appDetails.packageName
-
         val appItemView = ConstraintLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -373,9 +268,10 @@ class MainActivity : AppCompatActivity() {
             }
             setBackgroundResource(R.drawable.app_list_item_background)
             setPadding(24,24,24,24)
+            tag= appDetails.packageName
         }
 
-        // App Icon
+        /// Iconita aplicatiei
         val iconView = ImageView(this).apply {
             id = View.generateViewId()
             try {
@@ -390,8 +286,7 @@ class MainActivity : AppCompatActivity() {
         }
         appItemView.addView(iconView)
 
-        // App Name
-        
+        /// Numele aplicatiei
         val nameView = TextView(this).apply {
             id = View.generateViewId()
             text = "${appDetails.appName}"
@@ -405,7 +300,7 @@ class MainActivity : AppCompatActivity() {
         }
         appItemView.addView(nameView)
 
-        // App settings
+        /// Setarile aplicatiei
         val settingsView = TextView(this).apply {
             id = View.generateViewId()
             text = if (appDetails.mode == "Mode 2 (Launch Limit)") {
@@ -421,7 +316,7 @@ class MainActivity : AppCompatActivity() {
         }
         appItemView.addView(settingsView)
 
-        // Remove Button
+        /// Butonul de stergere
         val removeButton = Button(this).apply {
             id = View.generateViewId()
             background = ContextCompat.getDrawable(context, R.drawable.remove_button_bg)
@@ -430,7 +325,6 @@ class MainActivity : AppCompatActivity() {
                 appListContainer.removeView(appItemView)
             }
             layoutParams = LayoutParams(48.dp, 48.dp).apply {
-                // you can also add margins here
                 marginEnd = 8.dp
                 endToEnd = LayoutParams.PARENT_ID
                 topToTop = LayoutParams.PARENT_ID
@@ -438,8 +332,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         appItemView.addView(removeButton)
-
-        // Set layout constraints
         (iconView.layoutParams as LayoutParams).apply {
             startToStart = LayoutParams.PARENT_ID
             topToTop = LayoutParams.PARENT_ID
@@ -475,22 +367,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun removeApp(appDetails: AppDetails) {
-        // Validate removal from the data list
         val initialCount = selectedApps.size
         selectedApps.removeIf { it.packageName == appDetails.packageName }
-
         if (selectedApps.size == initialCount) {
             Log.e("RemoveError", "Failed to remove app: ${appDetails.packageName}")
             return
         }
-
-        // Force immediate UI update
         runOnUiThread {
             appListContainer.removeAllViews()
             selectedApps.forEach { addAppToMainLayout(it) }
         }
-
-        // Persist changes
         saveSelectedApps()
     }
 
@@ -511,9 +397,8 @@ class MainActivity : AppCompatActivity() {
 
         }
 
-        Log.d("SaveApps", "Saving JSON: ${jsonArray.toString()}")
+        Log.d("SaveApps", "Saving JSON: ${jsonArray}")
 
-        // Use commit() to ensure immediate write
         val editor = sharedPrefs.edit()
         editor.putString("selectedApps", jsonArray.toString())
         val success = editor.commit()
@@ -524,7 +409,6 @@ class MainActivity : AppCompatActivity() {
             Log.e("SaveApps", "Failed to save app data")
         }
 
-        // Verify save by immediately reading back
         val savedJson = sharedPrefs.getString("selectedApps", "")
         Log.d("SaveApps", "Verification - Read back: ${savedJson?.take(100)}...")
 
@@ -535,10 +419,6 @@ class MainActivity : AppCompatActivity() {
         else {
             appDoesntExistText.visibility = View.VISIBLE
         }
-
-        // Verify save
-        Log.d("SaveDebug", "Saved apps: ${sharedPrefs.getString("selectedApps", "")}")
-        refreshAppList()
     }
     private fun loadSelectedApps() {
         runCatching {
@@ -623,13 +503,10 @@ class MainActivity : AppCompatActivity() {
         transaction.replace(R.id.fragmentContainer, fragment)
         transaction.commit()
 
-        // Ensure we access addButton after the view is fully initialized
         val addButton = findViewById<Button>(R.id.addButton)
-        val viewLogsButton = findViewById<Button>(R.id.viewLogsButton)
         val appListScrollView = findViewById<ScrollView>(R.id.appListScrollView)
         val appDoesntExistText = findViewById<TextView>(R.id.appDoesntExistText)
 
-        // Hide addButton
         when (fragment) {
             is HomeFragment -> {
                 addButton.visibility = View.VISIBLE
@@ -648,26 +525,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    private val fragmentMap = mutableMapOf<String, Fragment>()
-
-    private fun getFragment(tag: String, creator: () -> Fragment): Fragment {
-        return fragmentMap.getOrPut(tag) { creator() }
-    }
-
-    private fun refreshAppList() {
-        appListContainer.removeAllViews()
-        for (app in selectedApps) {
-            addAppToMainLayout(app)
-        }
-    }
-    private fun updateAppExists() {
-        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
-        val json = sharedPreferences.getString("selectedApps", "[]") ?: "[]"
-        // If the json string is "[]" or empty, then no apps exist.
-        val appExists = json.isNotEmpty() && json != "[]"
-        Log.d("AppExists", "appExists updated to $appExists")
-    }
-
 
     private fun hasApps(): Boolean {
         val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
@@ -686,21 +543,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestImagePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requestPermissions(
-                arrayOf(Manifest.permission.READ_MEDIA_IMAGES),
-                REQUEST_IMAGE_PERMISSION
-            )
-        } else {
-            requestPermissions(
-                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                REQUEST_IMAGE_PERMISSION
-            )
-        }
-        val hasImagePermission = true;
-    }
-
     private fun loadAndDisplaySelectedApps() {
         loadSelectedApps()
         appListContainer.removeAllViews() // Clear existing views
@@ -709,4 +551,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleEditAppIntent(intent)
+    }
+
+    private fun handleEditAppIntent(intent: Intent?) {
+        val editAppPackage = intent?.getStringExtra("EDIT_APP_PACKAGE")
+        if (!editAppPackage.isNullOrEmpty()) {
+            val appToEdit = selectedApps.find { it.packageName == editAppPackage }
+            if (appToEdit != null) {
+                appListContainer.post {
+                    for (i in 0 until appListContainer.childCount) {
+                        val child = appListContainer.getChildAt(i)
+                        if (child is ConstraintLayout && child.tag == appToEdit.packageName) {
+                            editAppDetailsDialog(appToEdit, child)
+                            break
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

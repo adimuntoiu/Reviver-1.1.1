@@ -1,7 +1,6 @@
 package com.example.reviver
 
 import android.app.*
-import android.app.usage.UsageStats
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
@@ -14,7 +13,6 @@ import androidx.core.app.NotificationCompat
 import android.provider.Settings
 import org.json.JSONArray
 import org.json.JSONObject
-import android.content.pm.PackageManager
 import android.app.usage.UsageEvents
 
 class MonitoringService : Service() {
@@ -25,8 +23,6 @@ class MonitoringService : Service() {
     private val interval: Long = 1000 // 1 second
     private lateinit var overlay: Overlay
     private val monitoredApps = mutableListOf<AppDetails>()
-    private var lastCountedPackage: String? = null // tracks which package has already been counted for this session
-
     override fun onCreate() {
         super.onCreate()
         overlay = Overlay(this)
@@ -103,6 +99,9 @@ class MonitoringService : Service() {
         }
     }
     private fun checkAndUpdateAppLaunches(app: AppDetails) {
+        if (app.currentOpens > app.maxOpens) {
+            showOverlay("${app.appName} exceeded open limit")
+        }
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val endTime = System.currentTimeMillis()
         // Look back 12 hours (adjust timeframe as needed)
@@ -145,12 +144,9 @@ class MonitoringService : Service() {
                 saveUpdatedAppCount(app)
 
                 // Remember that we've processed this launch
-                prefs.edit().putLong("last_launch_${app.packageName}", mostRecentLaunch).commit()
+                prefs.edit().putLong("last_launch_${app.packageName}", mostRecentLaunch).apply()
 
                 // Check if we need to show the overlay
-                if (app.currentOpens > app.maxOpens) {
-                    showOverlay("${app.appName} exceeded open limit")
-                }
             }
         }
     }
@@ -182,11 +178,6 @@ class MonitoringService : Service() {
             lastPackageStartTime = System.currentTimeMillis()
         }
     }
-    private fun handleLaunchLimit(app: AppDetails){
-        if (app.currentOpens > app.maxOpens) {
-            showOverlay("${app.appName} exceeded open limit")
-        }
-    }
 
     private fun handlePasswordMode(app: AppDetails) {
         if (app.password.isNullOrEmpty()) {
@@ -202,11 +193,10 @@ class MonitoringService : Service() {
     }
 
     private fun showOverlay(message: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+        if (!Settings.canDrawOverlays(this)) {
             Log.e("Overlay", "Permission denied")
             return
         }
-        val selectedApps = loadSelectedApps()
         val currentApp = monitoredApps.find { it.packageName == lastPackageName }
         if (currentApp != null) {
             overlay.showOverlay(message, currentApp) // <-- FIXED
@@ -285,26 +275,7 @@ class MonitoringService : Service() {
             array.put(obj)
         }
         editor.putString("selectedApps", array.toString())
-        editor.commit()
-    }
-
-    fun incrementLaunchCount(app: AppDetails) {
-        // Update in-memory first
-        app.currentOpens++
-
-        // Immediately persist to SharedPreferences
-        val prefs = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
-        val jsonArray = JSONArray(prefs.getString("selectedApps", "[]")).apply {
-            for (i in 0 until length()) {
-                val obj = getJSONObject(i)
-                if (obj.getString("packageName") == app.packageName) {
-                    obj.put("currentOpens", app.currentOpens)
-                }
-            }
-        }
-
-        prefs.edit().putString("selectedApps", jsonArray.toString()).apply()
-        Log.d("LaunchCount", "Saved ${app.appName} opens: ${app.currentOpens}")
+        editor.apply()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -314,30 +285,6 @@ class MonitoringService : Service() {
         handler.removeCallbacks(monitorTask)
     }
 
-    private fun loadSelectedApps(): List<AppDetails> {
-        val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
-        val json = sharedPreferences.getString("selectedApps", null) ?: return emptyList()
-
-        return try {
-            JSONArray(json).let { jsonArray ->
-                List(jsonArray.length()) { i ->
-                    jsonArray.getJSONObject(i).let { obj ->
-                        AppDetails(
-                            packageName = obj.getString("packageName"),
-                            appName = obj.getString("name"),
-                            timeLimit = obj.getInt("timeLimit"),
-                            mode = obj.getString("mode"),
-                            maxOpens = obj.optInt("maxOpens", 0),
-                            currentOpens = obj.optInt("currentOpens", 0),
-                            password = obj.optString("password")
-                        )
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.getStringExtra("RESET_PACKAGE")?.let { packageName ->
             monitoredApps.find { it.packageName == packageName }?.let { app ->

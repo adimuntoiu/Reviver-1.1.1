@@ -22,7 +22,6 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Set up View Logs button
         view.findViewById<Button>(R.id.viewLogsButton).setOnClickListener {
             startActivity(Intent(requireContext(), LogcatViewerActivity::class.java))
         }

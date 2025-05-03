@@ -1,19 +1,5 @@
-<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+<navigation
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     app:startDestination="@id/nav_home">
-
-
-    <fragment
-        android:id="@+id/nav_stats"
-        android:name="com.example.reviver.ui.StatsFragment"
-        android:label="Stats"
-        tools:layout="@layout/fragment_stats" />
-
-    <fragment
-        android:id="@+id/nav_settings"
-        android:name="com.example.reviver.ui.SettingsFragment"
-        android:label="Settings"
-        tools:layout="@layout/fragment_settings" />
 
 </navigation>

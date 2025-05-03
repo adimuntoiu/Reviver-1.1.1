@@ -23,10 +23,7 @@ class LogcatViewerActivity : AppCompatActivity() {
         val copyLogsButton: Button = findViewById(R.id.copyLogsButton)
         val backToMainButton: Button = findViewById(R.id.backToMainButton)
 
-        // Enable scrolling for the TextView
         logTextView.movementMethod = android.text.method.ScrollingMovementMethod()
-
-        // Populate the log view
         updateLogs()
 
         copyLogsButton.setOnClickListener {
@@ -34,8 +31,8 @@ class LogcatViewerActivity : AppCompatActivity() {
         }
 
         backToMainButton.setOnClickListener {
-            updateLogs() // Refresh logs
-            navigateToMainPage() // Navigate to main
+            updateLogs()
+            navigateToMainPage()
         }
     }
 
@@ -59,7 +56,7 @@ class LogcatViewerActivity : AppCompatActivity() {
 
     private fun navigateToMainPage() {
         val intent = Intent(this, MainActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP // Clears all other activities in the stack
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
         startActivity(intent)
     }
 }

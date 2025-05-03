@@ -6,4 +6,8 @@
         <item>Mode 2 (Launch Limit)</item>
         <item>Mode 3 (Password Protected)</item>
     </string-array>
+    <string name="english">English</string>
+    <string name="romanian">Română</string>
+    <string name="language_settings">Language Settings</string>
+    <string name="view_logs">View Logs</string>
 </resources>

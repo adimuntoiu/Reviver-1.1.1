@@ -9,15 +9,11 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.RelativeLayout
 import kotlin.random.Random
-import android.net.Uri
 import android.graphics.*
-import android.graphics.drawable.BitmapDrawable
-import androidx.appcompat.app.AlertDialog
 import android.content.Intent
 import android.widget.EditText
 import android.widget.Toast
 import android.view.inputmethod.InputMethodManager
-import android.util.Log
 
 class Overlay(private val context: Context) {
 
@@ -25,14 +21,13 @@ class Overlay(private val context: Context) {
     private var overlayView: View? = null
 
     fun showOverlay(message: String, app: AppDetails? = null) {
+        /// Verificam daca mai exista un overlay
         if (overlayView != null) {
-            return  // Avoid showing multiple overlays
+            return
         }
 
-        // Inflate the overlay layout
         val inflater = context.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
         overlayView = inflater.inflate(R.layout.overlay_layout, null)
-        val rootLayout = overlayView!!.findViewById<RelativeLayout>(R.id.overlay_root)
         val passwordInput = overlayView!!.findViewById<EditText>(R.id.passwordInput)
         val submitButton = overlayView!!.findViewById<Button>(R.id.submitButton)
         val forgotPassword = overlayView!!.findViewById<Button>(R.id.forgotPassword)
@@ -40,7 +35,7 @@ class Overlay(private val context: Context) {
         passwordInput.isEnabled = true
         passwordInput.isFocusable = true
         passwordInput.isFocusableInTouchMode = true
-        // Initialize WindowManager
+
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val flags = if (app?.mode == "Mode 3 (Password Protected)") {
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
@@ -48,7 +43,6 @@ class Overlay(private val context: Context) {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
         }
 
-        // Set up layout parameters for the overlay
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -64,7 +58,6 @@ class Overlay(private val context: Context) {
         val messageTextView = overlayView!!.findViewById<TextView>(R.id.overlay_message)
         messageTextView.text = message
 
-        // Set up the close button
         val closeButton = overlayView!!.findViewById<Button>(R.id.close_button)
 
         val layoutParams = closeButton.layoutParams as RelativeLayout.LayoutParams
@@ -73,9 +66,8 @@ class Overlay(private val context: Context) {
                 passwordInput.visibility = View.VISIBLE
                 submitButton.visibility = View.VISIBLE
                 closeButton.visibility = View.GONE
-                forgotPassword.visibility = View.VISIBLE
 
-                // Enable input
+                /// Putem sa inseram parola
                 passwordInput.isEnabled = true
                 passwordInput.isFocusable = true
 
@@ -85,7 +77,7 @@ class Overlay(private val context: Context) {
                     if (input == app.password) {
                         removeOverlay()
                         val intent = Intent(context, MonitoringService::class.java).apply {
-                            putExtra("RESET_PACKAGE", app?.packageName)
+                            putExtra("RESET_PACKAGE", app.packageName)
                         }
                         context.startService(intent)
                     } else {
@@ -94,7 +86,6 @@ class Overlay(private val context: Context) {
                         passwordInput.requestFocus()
                     }
                 }
-
                 forgotPassword.setOnClickListener {
                     removeOverlay()
                     sendToAppDetails(app)
@@ -106,17 +97,15 @@ class Overlay(private val context: Context) {
             }
 
             "Mode 2 (Launch Limit)" -> {
-                // Launch limit mode
                 passwordInput.visibility = View.GONE
                 submitButton.visibility = View.GONE
-                closeButton.visibility = View.VISIBLE
                 forgotPassword.visibility = View.GONE
                 messageTextView.text = "$message\nCurrent opens: ${app.currentOpens}/${app.maxOpens}"
                 setupRandomCloseButton(closeButton)
             }
 
             else -> {
-                // Default mode (Time Limit)
+                /// Modul 1
                 passwordInput.visibility = View.GONE
                 submitButton.visibility = View.GONE
                 forgotPassword.visibility = View.GONE
@@ -135,8 +124,6 @@ class Overlay(private val context: Context) {
             removeOverlay()
         }
 
-
-        // Add the overlay view to the window
         windowManager?.addView(overlayView, params)
     }
 
@@ -158,16 +145,10 @@ class Overlay(private val context: Context) {
         button.setOnClickListener { removeOverlay() }
     }
     private fun sendToAppDetails(app: AppDetails) {
-        try {
-            val intent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("EDIT_APP_PACKAGE", app.packageName)
-            }
-
-            context.startActivity(intent)
-            removeOverlay() // Optional: Remove overlay after launching
-        } catch (e: Exception) {
-            Toast.makeText(context, "Could not open app settings", Toast.LENGTH_SHORT).show()
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
+        context.startActivity(intent)
+        removeOverlay()
     }
 }

@@ -75,7 +75,7 @@
         android:background="@drawable/middlebar"
         android:paddingBottom="4dp"
         app:itemHorizontalTranslationEnabled="false"
-        app:itemIconSize="25dp"
+        app:itemIconSize="26dp"
         app:labelVisibilityMode="unlabeled"
         app:menu="@menu/bottom_nav_menu"
         app:layout_constraintBottom_toBottomOf="parent"

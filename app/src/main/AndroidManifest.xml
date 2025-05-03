@@ -22,9 +22,9 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/icon_square_round"
+        android:roundIcon="@mipmap/ic_launcher_round_2"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar"
         tools:targetApi="31">
@@ -39,25 +39,6 @@
             </intent-filter>
         </activity>
         <activity android:name=".LogcatViewerActivity" />
-        <activity android:name=".TimeLimitExceededActivity" />
-
-        <service
-            android:exported='true'
-            android:name=".MyAccessibilityService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="accessibillityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
-
-        <receiver
-            android:name=".RestartReceiver"
-            android:enabled="true"
-            android:exported="false" />
-
         <service
             android:name=".MonitoringService"
             android:exported="false"
