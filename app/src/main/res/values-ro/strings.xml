@@ -1,14 +1,47 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Existing strings -->
     <string name="app_name">Reviver</string>
     <string name="accessibility_service_description">Acest serviciu monitorizează utilizarea aplicațiilor.</string>
+
+    <!-- New strings -->
+    <string name="overlay_permission_toast">Acordați permisiunea de suprapunere pentru a utiliza această funcționalitate.</string>
+    <string name="select_apps_title">Selectați Aplicații</string>
+    <string name="add_button">Adaugă</string>
+    <string name="cancel_button">Anulează</string>
+    <string name="current_password">Parolă curentă: %s</string>
+    <string name="no_password_set">Nicio parolă setată</string>
+    <string name="wrong_password_toast">Parolă incorectă!</string>
+    <string name="notification_title">Reviver este activ</string>
+    <string name="notification_content">Monitorizăm utilizarea aplicațiilor</string>
+    <string name="time_up_message">Timpul a expirat pentru %s</string>
+    <string name="password_required_message">Parolă necesară pentru %s</string>
+    <string name="exceeded_open_limit">%s a depășit limita de deschideri</string>
+    <string name="current_opens_format">Deschideri curente: %1$d/%2$d</string>
+    <string name="no_apps_message">Nu aveți aplicații adăugate cu limită de timp</string>
+    <string name="forgot_password">Ai uitat parola</string>
+    <string name="app_list_item_background">Fundal element listă aplicații</string>
+    <string name="add_button_background">Fundal buton adăugare</string>
+    <string name="mode_1">Mod 1 (Limită de timp)</string>
+    <string name="mode_2">Mod 2 (Limită deschideri)</string>
+    <string name="mode_3">Mod 3 (Protejat cu parolă)</string>
+    <string name="mode_4">Mod 4 (Suprapunere constantă)</string>
+    <string name="max_opens_format">Maxim deschideri: %1$d, Curent: %2$d</string>
+    <string name="time_limit_mode_format">Limită: %1$d secunde, %2$s</string>
+
     <string-array name="modes_array">
-        <item>Modul 1 (Limita de timp)</item>
-        <item>Modul 2 (Limita de lansari)</item>
-        <item>Modul 3 (Limita de timp cu parola)</item>
+        <item>Mod 1 (Limită de timp)</item>
+        <item>Mod 2 (Limită deschideri)</item>
+        <item>Mod 3 (Protejat cu parolă)</item>
+        <item>Mod 4 (Suprapunere constantă)</item>
     </string-array>
-    <string name="english">Engleza</string>
+
+    <string name="english">Engleză</string>
     <string name="romanian">Română</string>
-    <string name="language_settings">Setari de limba</string>
-    <string name="view_logs">View Logs</string>
+    <string name="language_settings">Setări limbă</string>
+    <string name="view_logs">Vezi istoric</string>
+
+    <string-array name="languages_array">
+        <item>@string/english</item>
+        <item>@string/romanian</item>
+    </string-array>
 </resources>

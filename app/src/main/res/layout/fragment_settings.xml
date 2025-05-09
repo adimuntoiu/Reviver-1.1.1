@@ -5,11 +5,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/first_page_no_text"
-    >
+    android:background="@drawable/first_page_no_text">
+
     <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto"
         xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/logsDiv"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="horizontal"
@@ -30,6 +31,28 @@
             android:text="View Logs"
             android:paddingStart="32dp"
             android:paddingEnd="32dp"/>
+
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:padding="16dp"
+        android:layout_marginTop="90dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Language switch"
+            android:textSize="18sp"
+            android:paddingRight="4dp"/>
+
+        <Spinner android:id="@+id/switchLanguageButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/switch_language"
+            android:padding="16dp" />
 
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

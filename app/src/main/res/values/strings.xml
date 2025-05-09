@@ -1,13 +1,51 @@
 <resources>
+    <!-- Existing strings -->
     <string name="app_name">Reviver</string>
     <string name="accessibility_service_description">This service helps monitor app usage.</string>
+
+    <!-- New strings -->
+    <string name="switch_language">Switch to Romanian</string>
+    <string name="switch_language_ro">Schimbă în Engleză</string>
+    <string name="application_logs">Application Logs</string>
+    <string name="application_logs_ro">Jurnal aplicație</string>
+    <string name="overlay_permission_toast">Please grant overlay permissions to allow this feature.</string>
+    <string name="select_apps_title">Select Apps</string>
+    <string name="add_button">Add</string>
+    <string name="cancel_button">Cancel</string>
+    <string name="current_password">Current password: %s</string>
+    <string name="no_password_set">No password set</string>
+    <string name="wrong_password_toast">Wrong password!</string>
+    <string name="notification_title">Reviver is running</string>
+    <string name="notification_content">Monitoring your app usage</string>
+    <string name="time_up_message">Time\'s up for %s</string>
+    <string name="password_required_message">Password required for %s</string>
+    <string name="exceeded_open_limit">%s exceeded open limit</string>
+    <string name="current_opens_format">Current opens: %1$d/%2$d</string>
+    <string name="no_apps_message">You currently have no added apps with a time limit</string>
+    <string name="forgot_password">Forgot Password</string>
+    <string name="app_list_item_background">App List Item Background</string>
+    <string name="add_button_background">Add Button Background</string>
+    <string name="mode_1">Mode 1 (Time Limit)</string>
+    <string name="mode_2">Mode 2 (Launch Limit)</string>
+    <string name="mode_3">Mode 3 (Password Protected)</string>
+    <string name="mode_4">Mode 4 (Constant Overlay)</string>
+    <string name="max_opens_format">Max Opens: %1$d, Current: %2$d</string>
+    <string name="time_limit_mode_format">Limit: %1$d seconds, %2$s</string>
+
     <string-array name="modes_array">
         <item>Mode 1 (Time Limit)</item>
         <item>Mode 2 (Launch Limit)</item>
         <item>Mode 3 (Password Protected)</item>
+        <item>Mode 4 (Constant Overlay)</item>
     </string-array>
+
     <string name="english">English</string>
     <string name="romanian">Română</string>
     <string name="language_settings">Language Settings</string>
     <string name="view_logs">View Logs</string>
+
+    <string-array name="languages_array">
+        <item>@string/english</item>
+        <item>@string/romanian</item>
+    </string-array>
 </resources>
