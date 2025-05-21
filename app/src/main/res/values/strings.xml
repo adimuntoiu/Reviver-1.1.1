@@ -1,10 +1,7 @@
 <resources>
-    <!-- Existing strings -->
     <string name="app_name">Reviver</string>
     <string name="accessibility_service_description">This service helps monitor app usage.</string>
-
-    <!-- New strings -->
-    <string name="switch_language">Switch to Romanian</string>
+    <string name="switch_language">Switch Language</string>
     <string name="switch_language_ro">Schimbă în Engleză</string>
     <string name="application_logs">Application Logs</string>
     <string name="application_logs_ro">Jurnal aplicație</string>
@@ -25,27 +22,66 @@
     <string name="forgot_password">Forgot Password</string>
     <string name="app_list_item_background">App List Item Background</string>
     <string name="add_button_background">Add Button Background</string>
-    <string name="mode_1">Mode 1 (Time Limit)</string>
-    <string name="mode_2">Mode 2 (Launch Limit)</string>
-    <string name="mode_3">Mode 3 (Password Protected)</string>
-    <string name="mode_4">Mode 4 (Constant Overlay)</string>
+    <string name="mode1">Mode 1 (Time Limit)</string>
+    <string name="mode2">Mode 2 (Launch Limit)</string>
+    <string name="mode3">Mode 3 (Password Protected)</string>
+    <string name="mode4">Mode 4 (Constant Overlay)</string>
     <string name="max_opens_format">Max Opens: %1$d, Current: %2$d</string>
     <string name="time_limit_mode_format">Limit: %1$d seconds, %2$s</string>
-
-    <string-array name="modes_array">
-        <item>Mode 1 (Time Limit)</item>
-        <item>Mode 2 (Launch Limit)</item>
-        <item>Mode 3 (Password Protected)</item>
-        <item>Mode 4 (Constant Overlay)</item>
-    </string-array>
-
     <string name="english">English</string>
     <string name="romanian">Română</string>
+    <string name="deutsch">Deutsch</string>
+    <string name="espanol">Español</string>
+    <string name="french">Français</string>
     <string name="language_settings">Language Settings</string>
     <string name="view_logs">View Logs</string>
+    <string name="time_limit_format">%1$s: %2$d seconds, %3$s</string>
+    <string name="limit_label">Limit</string>
+
+    <string-array name="modes_array">
+        <item>@string/mode1</item>
+        <item>@string/mode2</item>
+        <item>@string/mode3</item>
+        <item>@string/mode4</item>
+    </string-array>
 
     <string-array name="languages_array">
         <item>@string/english</item>
         <item>@string/romanian</item>
+        <item>@string/deutsch</item>
+        <item>@string/espanol</item>
+        <item>@string/french</item>
     </string-array>
+
+    <string-array name="tip_suggestions">
+        <item>Fold an origami animal</item>
+        <item>Go for a walk</item>
+        <item>Bake some cookies</item>
+        <item>Read a book chapter</item>
+        <item>Do 10 push-ups</item>
+        <item>Write in a journal</item>
+        <item>Try a new tea flavor</item>
+        <item>Organize your workspace</item>
+        <item>Call a friend or family member</item>
+        <item>Do a quick meditation</item>
+        <item>Sketch something around you</item>
+        <item>Learn a new word in another language</item>
+        <item>Stretch for 5 minutes</item>
+        <item>Plan your next vacation</item>
+        <item>Water your plants</item>
+        <item>Listen to a podcast</item>
+        <item>Try a new recipe</item>
+        <item>Clean out your email inbox</item>
+        <item>Do a puzzle</item>
+        <item>Practice deep breathing</item>
+        <item>Write a thank-you note</item>
+        <item>Learn a magic trick</item>
+        <item>Dance to your favorite song</item>
+        <item>Visit a local museum</item>
+        <item>Learn to juggle</item>
+        <item>Volunteer in your community</item>
+        <item>Try yoga</item>
+        <item>Tend your garden</item>
+    </string-array>
+
 </resources>

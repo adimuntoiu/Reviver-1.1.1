@@ -1,9 +1,10 @@
 <resources>
-    <!-- Existing strings -->
     <string name="app_name">Reviver</string>
     <string name="accessibility_service_description">Acest serviciu monitorizează utilizarea aplicațiilor.</string>
-
-    <!-- New strings -->
+    <string name="switch_language">Schimbă limba aplicației</string>
+    <string name="switch_language_ro">Schimbă în Engleză</string>
+    <string name="application_logs">Jurnal al aplicatiei</string>
+    <string name="application_logs_ro">Jurnal aplicație</string>
     <string name="overlay_permission_toast">Acordați permisiunea de suprapunere pentru a utiliza această funcționalitate.</string>
     <string name="select_apps_title">Selectați Aplicații</string>
     <string name="add_button">Adaugă</string>
@@ -21,27 +22,64 @@
     <string name="forgot_password">Ai uitat parola</string>
     <string name="app_list_item_background">Fundal element listă aplicații</string>
     <string name="add_button_background">Fundal buton adăugare</string>
-    <string name="mode_1">Mod 1 (Limită de timp)</string>
-    <string name="mode_2">Mod 2 (Limită deschideri)</string>
-    <string name="mode_3">Mod 3 (Protejat cu parolă)</string>
-    <string name="mode_4">Mod 4 (Suprapunere constantă)</string>
+    <string name="mode1">Mod 1 (Limită de timp)</string>
+    <string name="mode2">Mod 2 (Limită deschideri)</string>
+    <string name="mode3">Mod 3 (Protejat cu parolă)</string>
+    <string name="mode4">Mod 4 (Suprapunere constantă)</string>
     <string name="max_opens_format">Maxim deschideri: %1$d, Curent: %2$d</string>
     <string name="time_limit_mode_format">Limită: %1$d secunde, %2$s</string>
-
-    <string-array name="modes_array">
-        <item>Mod 1 (Limită de timp)</item>
-        <item>Mod 2 (Limită deschideri)</item>
-        <item>Mod 3 (Protejat cu parolă)</item>
-        <item>Mod 4 (Suprapunere constantă)</item>
-    </string-array>
-
     <string name="english">Engleză</string>
     <string name="romanian">Română</string>
     <string name="language_settings">Setări limbă</string>
     <string name="view_logs">Vezi istoric</string>
+    <string name="time_limit_format">%1$s: %2$d secunde, %3$s</string>
+    <string name="limit_label">Limita</string>
+    <string name="deutsch">Deutsch</string>
+    <string name="espanol">Español</string>
+    <string name="french">Français</string>
+    <string-array name="modes_array">
+        <item>@string/mode1</item>
+        <item>@string/mode2</item>
+        <item>@string/mode3</item>
+        <item>@string/mode4</item>
+    </string-array>
 
     <string-array name="languages_array">
         <item>@string/english</item>
         <item>@string/romanian</item>
+        <item>@string/deutsch</item>
+        <item>@string/espanol</item>
+        <item>@string/french</item>
+    </string-array>
+
+    <string-array name="tip_suggestions">
+        <item>Realizează un origami</item>
+        <item>Mergeți la o plimbare</item>
+        <item>Coaceți biscuiți</item>
+        <item>Citește un capitol dintr-o carte</item>
+        <item>Fă 10 flotări</item>
+        <item>Scrie în jurnalul tău</item>
+        <item>Încearcă un nou tip de ceai</item>
+        <item>Fă-ti curat pe birou </item>
+        <item>Sună un prieten sau un membru al familiei</item>
+        <item>Incearcă să meditezi</item>
+        <item>Desenează ceva din jurul tău</item>
+        <item>Învață un cuvânt nou într-o altă limbă</item>
+        <item>Întinde-te timp de 5 minute</item>
+        <item>Planifică-ți următoarea vacanță</item>
+        <item>Udă-ți plantele</item>
+        <item>Ascultă un podcast</item>
+        <item>Încearcă o rețetă nouă</item>
+        <item>Curăță-ți inbox-ul de email</item>
+        <item>Rezolvă un puzzle</item>
+        <item>Exersează respirația adancă</item>
+        <item>Scrie o notă de mulțumire</item>
+        <item>Învață un truc de magie</item>
+        <item>Dansează pe cântecul tău preferat</item>
+        <item>Vizitează un muzeu </item>
+        <item>Învață să jonglezi</item>
+        <item>Fă voluntariat în comunitatea ta</item>
+        <item>Încearcă yoga</item>
+        <item>Îngrijește-ți grădina</item>
     </string-array>
 </resources>

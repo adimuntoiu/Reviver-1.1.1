@@ -1,0 +1,86 @@
+<resources>
+    <string name="app_name">Reviver</string>
+    <string name="accessibility_service_description">Ce service aide à surveiller l utilisation des applications.</string>
+    <string name="switch_language">Changer de langue</string>
+    <string name="switch_language_ro">Passer à l Anglais</string>
+    <string name="application_logs">Journaux d application</string>
+    <string name="application_logs_ro">Journal d application</string>
+    <string name="overlay_permission_toast">Veuillez accorder les permissions de superposition pour activer cette fonctionnalité.</string>
+    <string name="select_apps_title">Sélectionner des applications</string>
+    <string name="add_button">Ajouter</string>
+    <string name="cancel_button">Annuler</string>
+    <string name="current_password">Mot de passe actuel : %s</string>
+    <string name="no_password_set">Aucun mot de passe défini</string>
+    <string name="wrong_password_toast">Mot de passe incorrect !</string>
+    <string name="notification_title">Reviver est en cours d exécution</string>
+    <string name="notification_content">Surveillance de votre utilisation des applications</string>
+    <string name="time_up_message">Temps écoulé pour %s</string>
+    <string name="password_required_message">Mot de passe requis pour %s</string>
+    <string name="exceeded_open_limit">%s a dépassé la limite d ouvertures</string>
+    <string name="current_opens_format">Ouvertures actuelles : %1$d/%2$d</string>
+    <string name="no_apps_message">Vous n avez actuellement aucune application ajoutée avec une limite de temps</string>
+    <string name="forgot_password">Mot de passe oublié</string>
+    <string name="app_list_item_background">Arrière-plan de l élément de la liste d applications</string>
+    <string name="add_button_background">Arrière-plan du bouton Ajouter</string>
+    <string name="mode1">Mode 1 (Limite de temps)</string>
+    <string name="mode2">Mode 2 (Limite d ouvertures)</string>
+    <string name="mode3">Mode 3 (Protégé par mot de passe)</string>
+    <string name="mode4">Mode 4 (Superposition constante)</string>
+    <string name="max_opens_format">Ouvertures max : %1$d, Actuel : %2$d</string>
+    <string name="time_limit_mode_format">Limite : %1$d secondes, %2$s</string>
+    <string name="english">Anglais</string>
+    <string name="romanian">Roumain</string>
+    <string name="deutsch">Allemand</string>
+    <string name="espanol">Espagnol</string>
+    <string name="french">Français</string>
+    <string name="language_settings">Paramètres de langue</string>
+    <string name="view_logs">Voir les journaux</string>
+    <string name="time_limit_format">%1$s : %2$d secondes, %3$s</string>
+    <string name="limit_label">Limite</string>
+
+    <string-array name="modes_array">
+        <item>@string/mode1</item>
+        <item>@string/mode2</item>
+        <item>@string/mode3</item>
+        <item>@string/mode4</item>
+    </string-array>
+
+    <string-array name="languages_array">
+        <item>@string/english</item>
+        <item>@string/romanian</item>
+        <item>@string/deutsch</item>
+        <item>@string/espanol</item>
+        <item>@string/french</item>
+    </string-array>
+
+    <string-array name="tip_suggestions">
+        <item>Pliez un animal en origami</item>
+        <item>Allez vous promener</item>
+        <item>Faites des cookies</item>
+        <item>Lisez un chapitre de livre</item>
+        <item>Faites 10 pompes</item>
+        <item>Écrivez dans un journal</item>
+        <item>Essayez une nouvelle saveur de thé</item>
+        <item>Organisez votre espace de travail</item>
+        <item>Appelez un ami ou un membre de la famille</item>
+        <item>Faites une courte méditation</item>
+        <item>Dessinez quelque chose autour de vous</item>
+        <item>Apprenez un nouveau mot dans une autre langue</item>
+        <item>Étirez-vous pendant 5 minutes</item>
+        <item>Planifiez vos prochaines vacances</item>
+        <item>Arrosez vos plantes</item>
+        <item>Écoutez un podcast</item>
+        <item>Essayez une nouvelle recette</item>
+        <item>Nettoyez votre boîte mail</item>
+        <item>Faites un puzzle</item>
+        <item>Pratiquez la respiration profonde</item>
+        <item>Écrivez une note de remerciement</item>
+        <item>Apprenez un tour de magie</item>
+        <item>Dansez sur votre chanson préférée</item>
+        <item>Visitez un musée local</item>
+        <item>Apprenez à jongler</item>
+        <item>Faites du bénévolat dans votre communauté</item>
+        <item>Essayez le yoga</item>
+        <item>Prenez soin de votre jardin</item>
+    </string-array>
+</resources>

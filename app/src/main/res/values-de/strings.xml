@@ -1,0 +1,86 @@
+<resources>
+    <string name="app_name">Reviver</string>
+    <string name="accessibility_service_description">Dieser Dienst hilft bei der Überwachung der App-Nutzung.</string>
+    <string name="switch_language">Sprache wechseln</string>
+    <string name="switch_language_ro">Zu Englisch wechseln</string>
+    <string name="application_logs">Anwendungsprotokolle</string>
+    <string name="application_logs_ro">Anwendungsjournal</string>
+    <string name="overlay_permission_toast">Bitte erteilen Sie Overlay-Berechtigungen, um diese Funktion zu nutzen.</string>
+    <string name="select_apps_title">Apps auswählen</string>
+    <string name="add_button">Hinzufügen</string>
+    <string name="cancel_button">Abbrechen</string>
+    <string name="current_password">Aktuelles Passwort: %s</string>
+    <string name="no_password_set">Kein Passwort gesetzt</string>
+    <string name="wrong_password_toast">Falsches Passwort!</string>
+    <string name="notification_title">Reviver läuft</string>
+    <string name="notification_content">Überwacht Ihre App-Nutzung</string>
+    <string name="time_up_message">Zeit abgelaufen für %s</string>
+    <string name="password_required_message">Passwort erforderlich für %s</string>
+    <string name="exceeded_open_limit">%s hat das Öffnungslimit überschritten</string>
+    <string name="current_opens_format">Aktuelle Öffnungen: %1$d/%2$d</string>
+    <string name="no_apps_message">Sie haben derzeit keine Apps mit Zeitlimit hinzugefügt</string>
+    <string name="forgot_password">Passwort vergessen</string>
+    <string name="app_list_item_background">App-Listenelement-Hintergrund</string>
+    <string name="add_button_background">Hinzufügen-Button-Hintergrund</string>
+    <string name="mode1">Modus 1 (Zeitlimit)</string>
+    <string name="mode2">Modus 2 (Startlimit)</string>
+    <string name="mode3">Modus 3 (Passwortgeschützt)</string>
+    <string name="mode4">Modus 4 (Konstantes Overlay)</string>
+    <string name="max_opens_format">Maximale Öffnungen: %1$d, Aktuell: %2$d</string>
+    <string name="time_limit_mode_format">Limit: %1$d Sekunden, %2$s</string>
+    <string name="english">Englisch</string>
+    <string name="romanian">Rumänisch</string>
+    <string name="deutsch">Deutsch</string>
+    <string name="espanol">Spanisch</string>
+    <string name="french">Französisch</string>
+    <string name="language_settings">Spracheinstellungen</string>
+    <string name="view_logs">Protokolle anzeigen</string>
+    <string name="time_limit_format">%1$s: %2$d Sekunden, %3$s</string>
+    <string name="limit_label">Limit</string>
+
+    <string-array name="modes_array">
+        <item>@string/mode1</item>
+        <item>@string/mode2</item>
+        <item>@string/mode3</item>
+        <item>@string/mode4</item>
+    </string-array>
+
+    <string-array name="languages_array">
+        <item>@string/english</item>
+        <item>@string/romanian</item>
+        <item>@string/deutsch</item>
+        <item>@string/espanol</item>
+        <item>@string/french</item>
+    </string-array>
+
+    <string-array name="tip_suggestions">
+        <item>Falte ein Origami-Tier</item>
+        <item>Geh spazieren</item>
+        <item>Backe Kekse</item>
+        <item>Lies ein Buchkapitel</item>
+        <item>Mache 10 Liegestütze</item>
+        <item>Schreibe in ein Tagebuch</item>
+        <item>Probiere eine neue Teesorte</item>
+        <item>Organisiere deinen Arbeitsbereich</item>
+        <item>Rufe einen Freund oder Familienmitglied an</item>
+        <item>Mache eine kurze Meditation</item>
+        <item>Skizziere etwas in deiner Umgebung</item>
+        <item>Lerne ein neues Wort in einer anderen Sprache</item>
+        <item>Dehne dich für 5 Minuten</item>
+        <item>Plane deinen nächsten Urlaub</item>
+        <item>Gieße deine Pflanzen</item>
+        <item>Höre einen Podcast</item>
+        <item>Probiere ein neues Rezept aus</item>
+        <item>Räume deinen E-Mail-Posteingang auf</item>
+        <item>Mache ein Puzzle</item>
+        <item>Praktiziere tiefes Atmen</item>
+        <item>Schreibe eine Dankeskarte</item>
+        <item>Lerne einen Zaubertrick</item>
+        <item>Tanz zu deinem Lieblingslied</item>
+        <item>Besuche ein lokales Museum</item>
+        <item>Lerne zu jonglieren</item>
+        <item>Engagiere dich in deiner Gemeinde</item>
+        <item>Probiere Yoga aus</item>
+        <item>Pflege deinen Garten</item>
+    </string-array>
+</resources>

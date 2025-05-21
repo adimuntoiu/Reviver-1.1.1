@@ -7,10 +7,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
+import android.widget.*
 import androidx.fragment.app.Fragment
-import com.example.reviver.R
 import com.example.reviver.LogcatViewerActivity
+import com.example.reviver.R
 import java.util.*
 
 class SettingsFragment : Fragment() {
@@ -30,46 +30,63 @@ class SettingsFragment : Fragment() {
             startActivity(Intent(requireContext(), LogcatViewerActivity::class.java))
         }
 
-        val languageButton = view.findViewById<Button>(R.id.switchLanguageButton)
-        updateLanguageButtonText(languageButton)
-
-        languageButton.setOnClickListener {
-            toggleLanguage()
-            requireActivity().recreate()
-        }
+        val languageSpinner = view.findViewById<Spinner>(R.id.languageSpinner)
+        setupLanguageSpinner(languageSpinner)
     }
 
-    private fun toggleLanguage() {
-        val sharedPrefs = requireContext().getSharedPreferences("AppSettings", Context.MODE_PRIVATE)
+    private fun setupLanguageSpinner(spinner: Spinner) {
+        val context = requireContext()
+        val langCodes = listOf("en", "ro", "de", "es", "fr")
+
+        val adapter = ArrayAdapter.createFromResource(
+            context,
+            R.array.languages_array,
+            android.R.layout.simple_spinner_item
+        )
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
+
+        val sharedPrefs = context.getSharedPreferences("AppSettings", Context.MODE_PRIVATE)
         val currentLang = sharedPrefs.getString("app_lang", "en") ?: "en"
-        val newLang = if (currentLang == "en") "ro" else "en"
+        val currentIndex = langCodes.indexOf(currentLang).takeIf { it >= 0 } ?: 0
+        spinner.setSelection(currentIndex)
 
-        sharedPrefs.edit().putString("app_lang", newLang).apply()
-        setAppLocale(newLang)
-    }
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?, view: View?, position: Int, id: Long
+            ) {
+                val newLang = langCodes[position]
+                if (newLang != currentLang) {
+                    setAppLanguage(newLang)
+                }
+            }
 
-    private fun updateLanguageButtonText(button: Button) {
-        val currentLang = requireContext()
-            .getSharedPreferences("AppSettings", Context.MODE_PRIVATE)
-            .getString("app_lang", "en") ?: "en"
-
-        button.text = if (currentLang == "en") {
-            getString(R.string.switch_language)
-        } else {
-            getString(R.string.switch_language_ro)
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
 
-    private fun setAppLocale(languageCode: String) {
-        val locale = Locale(languageCode)
+    private fun setAppLanguage(languageCode: String) {
+        val sharedPrefs = requireContext().getSharedPreferences("AppSettings", Context.MODE_PRIVATE)
+        sharedPrefs.edit().apply {
+            putString("app_lang", languageCode)
+            putString("last_fragment", "SettingsFragment")
+            apply()
+        }
+
+        updateLocale(requireContext(), languageCode)
+
+        requireActivity().recreate()
+    }
+
+    private fun updateLocale(context: Context, langCode: String) {
+        val locale = Locale(langCode)
         Locale.setDefault(locale)
 
         val config = Configuration()
         config.setLocale(locale)
+        config.setLayoutDirection(locale)
 
-        requireContext().resources.updateConfiguration(
-            config,
-            requireContext().resources.displayMetrics
-        )
+        context.resources.updateConfiguration(config, context.resources.displayMetrics)
+        requireActivity().applicationContext.resources.updateConfiguration(config, context.resources.displayMetrics)
     }
 }

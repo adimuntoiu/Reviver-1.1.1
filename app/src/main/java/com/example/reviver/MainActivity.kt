@@ -26,6 +26,7 @@ import androidx.fragment.app.Fragment
 import android.content.pm.ApplicationInfo
 import android.view.ViewGroup
 import android.app.Dialog
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.view.Window
 import android.graphics.Color
@@ -36,7 +37,7 @@ import androidx.core.content.ContextCompat
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
-    private val selectedApps = mutableListOf<AppDetails>() // List of selected apps
+    private val selectedApps = mutableListOf<AppDetails>()
     private val appListContainer: LinearLayout by lazy {
         findViewById(R.id.appListContainer)
     }
@@ -50,10 +51,10 @@ class MainActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("AppSettings", Context.MODE_PRIVATE)
         val lang = sharedPrefs.getString("app_lang", "en") ?: "en"
         setAppLocale(lang)
-
         setContentView(R.layout.activity_main)
-        ensureNotificationPermission()
+
         /// Trebuie sa avem permisiuniile necesare ca sa deschidem aplicatia
+        ensureNotificationPermission()
         checkAndRequestOverlayPermission()
         if (!hasUsageStatsPermission()) {
             requestUsageStatsPermission()
@@ -86,6 +87,17 @@ class MainActivity : AppCompatActivity() {
             true
         }
         handleEditAppIntent(intent)
+
+        val lastFragment = getSharedPreferences("AppSettings", Context.MODE_PRIVATE)
+            .getString("last_fragment", "HomeFragment")
+
+        val initialFragment = when (lastFragment) {
+            "SettingsFragment" -> SettingsFragment()
+            "InfoFragment" -> InfoFragment()
+            "StatsFragment" -> StatsFragment()
+            else -> HomeFragment()
+        }
+        replaceFragment(initialFragment)
     }
 
     /// Meniu custom pentru a adauga o aplicatie
@@ -171,6 +183,7 @@ class MainActivity : AppCompatActivity() {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         dialog.setContentView(R.layout.app_details_dialog)
 
+
         fun Int.dpToPx(context: Context): Int {
             return (this * context.resources.displayMetrics.density).toInt()
         }
@@ -186,21 +199,25 @@ class MainActivity : AppCompatActivity() {
         val maxOpensInput = dialog.findViewById<EditText>(R.id.maxOpensInput)
         val yourPasswordView = dialog.findViewById<TextView>(R.id.yourPassword)
         val passwordInput = dialog.findViewById<EditText>(R.id.passwordInput)
+        val modeEntries = resources.getStringArray(R.array.modes_array)
+        val modeValues = arrayOf("mode1", "mode2", "mode3", "mode4")
+
 
         timeLimitInput.setText(appDetails.timeLimit.toString())
         maxOpensInput.setText(appDetails.maxOpens.toString())
 
-        ArrayAdapter.createFromResource(
+        val adapter = ArrayAdapter(
             this,
-            R.array.modes_array,
-            android.R.layout.simple_spinner_item
-        ).also { adapter ->
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            modeSpinner.adapter = adapter
+            android.R.layout.simple_spinner_item,
+            modeEntries
+        ).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            modeSpinner.adapter = it
         }
-        modeSpinner.setSelection(
-            resources.getStringArray(R.array.modes_array).indexOf(appDetails.mode)
-        )
+
+        val position = modeValues.indexOf(appDetails.mode)
+        modeSpinner.setSelection(if (position >= 0) position else 0)
+
         modeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>, v: View?, pos: Int, id: Long) {
                 val selected = modeSpinner.selectedItem.toString()
@@ -240,12 +257,13 @@ class MainActivity : AppCompatActivity() {
             appDetails.maxOpens = maxOpens
             if (password != "") appDetails.password = password
 
-            if (mode == "Mode 2 (Launch Limit)" && appDetails.currentOpens <= 0) {
+            if (getModeType(mode) == 2 && appDetails.currentOpens <= 0) {
                 appDetails.currentOpens = 0
             }
 
             val settingsView = appItemView.getChildAt(2) as? TextView
-            settingsView?.text = if (mode == "Mode 2 (Launch Limit)") {
+            val modeType = getModeType(mode)
+            settingsView?.text = if (modeType == 2) {
                 getString(R.string.max_opens_format, maxOpens, appDetails.currentOpens)
             } else {
                 getString(R.string.time_limit_mode_format, timeLimit, mode)
@@ -293,7 +311,7 @@ class MainActivity : AppCompatActivity() {
                     "MainActivity",
                     "Failed to load icon for ${appDetails.packageName}, using default icon."
                 )
-                setImageResource(R.drawable.ic_notification) // Replace with a default icon
+                setImageResource(R.drawable.ic_notification)
             }
             layoutParams = LayoutParams(120, 120).apply {
                 marginEnd = 16
@@ -306,22 +324,24 @@ class MainActivity : AppCompatActivity() {
             id = View.generateViewId()
             text = "${appDetails.appName}"
             textSize = 16f
-            maxLines = 2 // Allow text to wrap up to two lines
-            ellipsize = android.text.TextUtils.TruncateAt.END // Add "..." if the text is too long
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
-                marginEnd = 16 // Add margin between text and button
+                marginEnd = 16
                 marginStart = 16
             }
         }
         appItemView.addView(nameView)
 
         /// Setarile aplicatiei
+        val modeType = getModeType(appDetails.mode)
+        val localizedModeName = getLocalizedModeName(appDetails.mode)
         val settingsView = TextView(this).apply {
             id = View.generateViewId()
-            text = if (appDetails.mode == "Mode 2 (Launch Limit)") {
+            text = if (modeType == 2) {
                 getString(R.string.max_opens_format, appDetails.maxOpens, appDetails.currentOpens)
             } else {
-                getString(R.string.time_limit_mode_format, appDetails.timeLimit, appDetails.mode)
+                getString(R.string.time_limit_mode_format, appDetails.timeLimit, localizedModeName)
             }
             textSize = 14f
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
@@ -440,7 +460,7 @@ class MainActivity : AppCompatActivity() {
             val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
             val json = sharedPreferences.getString("selectedApps", null)
 
-            Log.d("LoadDebug", "Loaded JSON: ${json?.take(100)}...") // Log first 100 chars
+            Log.d("LoadDebug", "Loaded JSON: ${json?.take(100)}...")
 
             json?.let {
                 JSONArray(it).let { jsonArray ->
@@ -507,18 +527,22 @@ class MainActivity : AppCompatActivity() {
 
         )
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            ///startForegroundServiceWithNotification()
             startForegroundService(serviceIntent)
         } else {
             startService(serviceIntent)
         }
     }
 
+
     private fun replaceFragment(fragment: Fragment) {
         val transaction = supportFragmentManager.beginTransaction()
         transaction.replace(R.id.fragmentContainer, fragment)
         transaction.commit()
 
+        supportFragmentManager.beginTransaction().apply {
+            replace(R.id.fragmentContainer, fragment)
+            commit()
+        }
         val addButton = findViewById<Button>(R.id.addButton)
         val appListScrollView = findViewById<ScrollView>(R.id.appListScrollView)
         val appDoesntExistText = findViewById<TextView>(R.id.appDoesntExistText)
@@ -562,7 +586,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadAndDisplaySelectedApps() {
         loadSelectedApps()
-        appListContainer.removeAllViews() // Clear existing views
+        appListContainer.removeAllViews()
         for (app in selectedApps) {
             addAppToMainLayout(app)
         }
@@ -591,7 +615,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
     private fun ensureNotificationPermission() {
-        // Only on Android 13+ do we need to ask at runtime
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -613,5 +636,30 @@ class MainActivity : AppCompatActivity() {
             config,
             baseContext.resources.displayMetrics
         )
+    }
+
+    private fun getLocalizedModeName(storedMode: String): String {
+        return when {
+            storedMode == "Mode 1 (Time Limit)" || storedMode == "Mod 1 (Limită de timp)" || storedMode == "Modus 1 (Zeitlimit)" || storedMode == "Modo 1 (Límite de tiempo)" || storedMode == "Mode 1 (Limite de temps)"->
+                getString(R.string.mode1)
+            storedMode == "Mode 2 (Launch Limit)" || storedMode == "Mod 2 (Limită deschideri)" || storedMode == "Modus 2 (Startlimit)"  || storedMode == "Modo 2 (Límite de aperturas)"  || storedMode == "Mode 2 (Limite d ouvertures)"  ->
+                getString(R.string.mode2)
+            storedMode == "Mode 3 (Password Protected)" || storedMode == "Mod 3 (Protejat cu parolă)" || storedMode == "Modus 3 (Passwortgeschützt)" || storedMode == "Modo 3 (Protegido por contraseña)" || storedMode == "Mode 3 (Protégé par mot de passe)" ->
+                getString(R.string.mode3)
+            storedMode == "Mode 4 (Constant Overlay)" || storedMode == "Mod 4 (Suprapunere constantă)" || storedMode == "Modus 4 (Konstantes Overlay)" || storedMode == "Modo 4 (Superposición constante)" || storedMode == "Mode 4 (Superposition constante)"->
+                getString(R.string.mode4)
+
+            else -> storedMode
+        }
+    }
+
+    private fun getModeType(storedMode: String): Int {
+        return when {
+            storedMode.contains("Mode 1") || storedMode.contains("Mod 1") || storedMode.contains("Modus 1") || storedMode.contains("Modo 1") -> 1
+            storedMode.contains("Mode 2") || storedMode.contains("Mod 2") || storedMode.contains("Modus 2") || storedMode.contains("Modo 2") -> 2
+            storedMode.contains("Mode 3") || storedMode.contains("Mod 3") || storedMode.contains("Modus 3") || storedMode.contains("Modo 3") -> 3
+            storedMode.contains("Mode 4") || storedMode.contains("Mod 4") || storedMode.contains("Modus 4") || storedMode.contains("Modo 4") -> 4
+            else -> 1
+        }
     }
 }

@@ -11,7 +11,6 @@ import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import android.provider.Settings
 import org.json.JSONArray
 import org.json.JSONObject
 import android.app.usage.UsageEvents
@@ -24,34 +23,27 @@ class MonitoringService : Service() {
     private var lastPackageName: String? = null
     private var lastPackageStartTime: Long = 0L
     private val handler = Handler(Looper.getMainLooper())
-    private val interval: Long = 1000 // 1 second
+    private val interval: Long = 1000 /// 1 second
     private lateinit var overlay: Overlay
     private val monitoredApps = mutableListOf<AppDetails>()
-    private val mode4Timers = mutableMapOf<String, Long>() // Store individual timers for Mode 4 apps
+    private val mode4Timers = mutableMapOf<String, Long>()
     private var lastForegroundTime = 0L
     private var appInBackground = true
     private var wakeLock: PowerManager.WakeLock? = null
-    
+
     companion object {
         private const val ONGOING_NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "reviver_channel_01"
         private const val WAKELOCK_TAG = "reviver:monitoring_wakelock"
     }
-    
+
     override fun onCreate() {
         super.onCreate()
         overlay = Overlay(this)
-        
-        // Create notification channel for Android O and above
+
         createNotificationChannel()
-        
-        // Start as foreground service with persistent notification
         startForeground(ONGOING_NOTIFICATION_ID, createPersistentNotification())
-        
-        // Acquire partial wake lock to keep service running
         acquireWakeLock()
-        
-        // Start monitoring task
         handler.post(monitorTask)
     }
 
@@ -67,26 +59,25 @@ class MonitoringService : Service() {
                 setSound(null, null)
                 lockscreenVisibility = Notification.VISIBILITY_SECRET
             }
-            
+
             (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
                 .createNotificationChannel(channel)
         }
     }
 
     private fun createPersistentNotification(): Notification {
-        // Create intent to open app when notification is tapped
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
             Intent(this, MainActivity::class.java),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
                 PendingIntent.FLAG_IMMUTABLE else 0
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Reviver is running")
             .setContentText("Monitoring your app usage")
-            .setSmallIcon(R.drawable.ic_launcher_background)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -94,13 +85,14 @@ class MonitoringService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .build()
     }
-    
+
     private fun acquireWakeLock() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             WAKELOCK_TAG
         ).apply {
+            setReferenceCounted(false)
             acquire(10*60*1000L /*10 minutes*/)
         }
     }
@@ -118,7 +110,7 @@ class MonitoringService : Service() {
         val lastResetTime = prefs.getLong("lastResetTime", 0L)
         val now = System.currentTimeMillis()
 
-        if (now - lastResetTime >= 24 * 60 * 60 * 1000L) { // 24 hours passed
+        if (now - lastResetTime >= 24 * 60 * 60 * 1000L) { /// 24 de ore
             Log.d("LaunchReset", "Resetting all currentOpens counters (24 hours passed)")
 
             for (app in monitoredApps) {
@@ -134,24 +126,20 @@ class MonitoringService : Service() {
 
     private fun monitorAppUsage() {
         loadAppSettings()
-        
+
         val currentPackageName = getLastUsedApp()
-        
-        // Check if we've gone to home screen or app switcher (app exit)
+
         if (currentPackageName == null || isHomeOrRecentsScreen(currentPackageName)) {
-            // App was exited, reset timers for Mode 4
             if (!appInBackground) {
                 Log.d("Mode4Tracker", "App went to background, setting flag")
                 appInBackground = true
-                
-                // Save the last package name before clearing it
+
                 val previousPackage = lastPackageName
                 lastPackageName = ""
-                
-                // Reset Mode 4 timers for the app that went to background
+
                 if (previousPackage != null) {
                     val app = monitoredApps.find { it.packageName == previousPackage }
-                    if (app?.mode == "Mode 4 (Constant Overlay)") {
+                    if (app != null && getModeType(app.mode) == 4) {
                         mode4Timers[previousPackage] = System.currentTimeMillis()
                         Log.d("Mode4Tracker", "Reset timer for $previousPackage as it went to background")
                     }
@@ -161,44 +149,37 @@ class MonitoringService : Service() {
         }
 
         val app = monitoredApps.find { it.packageName == currentPackageName } ?: return
-        
-        // Track app switching and returning from background
+
         if (currentPackageName != lastPackageName || appInBackground) {
             Log.d("AppTracker", "App switch or returning from background: $currentPackageName")
             lastPackageName = currentPackageName
             lastPackageStartTime = System.currentTimeMillis()
-            
-            // Reset Mode 4 timer when returning to the app from background
-            if (app.mode == "Mode 4 (Constant Overlay)") {
+
+            if (getModeType(app.mode) == 4) {
                 if (appInBackground) {
-                    // Reset the timer when coming back from background
                     mode4Timers[currentPackageName] = System.currentTimeMillis()
                     Log.d("Mode4Tracker", "Reset timer for $currentPackageName (coming from background)")
                 } else if (!mode4Timers.containsKey(currentPackageName)) {
-                    // Initialize timer if it doesn't exist
                     mode4Timers[currentPackageName] = System.currentTimeMillis()
                     Log.d("Mode4Tracker", "New timer for $currentPackageName")
                 }
             }
-            
+
             appInBackground = false
         }
 
         lastForegroundTime = System.currentTimeMillis()
-        
-        when (app.mode) {
-            "Mode 1 (Time Limit)"  -> handleTimeLimit(app)
-            "Mode 2 (Launch Limit)" -> checkAndUpdateAppLaunches(app)
-            "Mode 3 (Password Protected)" -> handlePasswordMode(app)
-            "Mode 4 (Constant Overlay)" -> handleConstantOverlay(app)
 
-            "Mod 1 (Limită de timp)" -> handleTimeLimit(app)
-            "Mod 2 (Limită deschideri)" -> checkAndUpdateAppLaunches(app)
-            "Mod 3 (Protejat cu parolă)" -> handlePasswordMode(app)
-            "Mod 4 (Suprapunere constantă)" -> handleConstantOverlay(app)
+        // Use the getModeType function to determine the mode type
+        when (getModeType(app.mode)) {
+            1 -> handleTimeLimit(app)
+            2 -> checkAndUpdateAppLaunches(app)
+            3 -> handlePasswordMode(app)
+            4 -> handleConstantOverlay(app)
+            else -> handleTimeLimit(app) // Default to time limit if mode is unknown
         }
     }
-    
+
     private fun isHomeOrRecentsScreen(packageName: String): Boolean {
         val systemUiPackages = listOf(
             "com.android.launcher",
@@ -218,7 +199,7 @@ class MonitoringService : Service() {
             showOverlay(getString(R.string.exceeded_open_limit,app.appName))
             return
         }
-        
+
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val endTime = System.currentTimeMillis()
         val startTime = endTime - 1000L * 60 * 60 * 12
@@ -239,7 +220,6 @@ class MonitoringService : Service() {
             }
         }
 
-        // If we have foreground events and the most recent one is new
         if (foregroundEventTimes.isNotEmpty()) {
             val mostRecentLaunch = foregroundEventTimes.maxOrNull() ?: 0L
             val prefs = getSharedPreferences("LaunchTracking", Context.MODE_PRIVATE)
@@ -258,13 +238,13 @@ class MonitoringService : Service() {
     }
 
     private fun handleConstantOverlay(app: AppDetails) {
-        val appTimer = mode4Timers.getOrPut(app.packageName) { 
-            System.currentTimeMillis() 
+        val appTimer = mode4Timers.getOrPut(app.packageName) {
+            System.currentTimeMillis()
         }
-        
+
         val elapsedTime = (System.currentTimeMillis() - appTimer) / 1000
         Log.d("Mode4Tracker", "App: ${app.appName}, Elapsed: $elapsedTime, Limit: ${app.timeLimit}")
-        
+
         if (elapsedTime >= app.timeLimit && app.timeLimit > 0) {
             showOverlay(getString(R.string.time_up_message, app.appName))
         }
@@ -280,7 +260,6 @@ class MonitoringService : Service() {
 
     private fun handlePasswordMode(app: AppDetails) {
         if (app.password.isNullOrEmpty()) {
-            // If no password set, fallback to time limit
             handleTimeLimit(app)
         } else {
             val elapsedTime = (System.currentTimeMillis() - lastPackageStartTime) / 1000
@@ -296,7 +275,6 @@ class MonitoringService : Service() {
         try {
             val jsonArray = JSONArray(prefs.getString("selectedApps", "[]"))
 
-            // Find and update the app's entry
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
                 if (obj.getString("packageName") == app.packageName) {
@@ -305,7 +283,6 @@ class MonitoringService : Service() {
                 }
             }
 
-            // Save the updated JSON
             val success = prefs.edit().putString("selectedApps", jsonArray.toString()).commit()
             Log.d("LaunchTracker", "Saved count for ${app.appName}: ${app.currentOpens}, success=$success")
         } catch (e: Exception) {
@@ -318,7 +295,7 @@ class MonitoringService : Service() {
         val currentApp = monitoredApps.find { it.packageName == lastPackageName }
         if (currentApp != null) {
             overlay.showOverlay(
-                localizedContext.getString(R.string.time_up_message, currentApp.appName), // Use localized string
+                localizedContext.getString(R.string.time_up_message, currentApp.appName),
                 currentApp
             )
         } else {
@@ -329,14 +306,13 @@ class MonitoringService : Service() {
     private fun getLastUsedApp(): String? {
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val endTime = System.currentTimeMillis()
-        // look back 12 hours (adjust as needed)
+
         val startTime = endTime - 1000L * 60 * 60 * 12
 
         val usageEvents = usm.queryEvents(startTime, endTime)
         val event = UsageEvents.Event()
         var lastPackage: String? = null
 
-        // Walk through all events; the final MOVE_TO_FOREGROUND is our target
         while (usageEvents.hasNextEvent()) {
             usageEvents.getNextEvent(event)
             if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
@@ -368,7 +344,6 @@ class MonitoringService : Service() {
                 }
             }
 
-            // Merge with existing monitoredApps to preserve state
             monitoredApps.apply {
                 clear()
                 addAll(newApps)
@@ -402,15 +377,13 @@ class MonitoringService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(monitorTask)
-        
-        // Release wake lock if held
+
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()
             }
         }
-        
-        // Restart our service if it's killed
+
         val restartIntent = Intent(applicationContext, MonitoringService::class.java)
         restartIntent.setPackage(packageName)
         startService(restartIntent)
@@ -421,49 +394,44 @@ class MonitoringService : Service() {
             monitoredApps.find { it.packageName == packageName }?.let { app ->
                 app.currentOpens = 0
                 saveLaunchCounts()
-                
-                // Also reset Mode 4 timer if applicable
-                if (app.mode == "Mode 4 (Constant Overlay)") {
+
+                if (getModeType(app.mode) == 4) {
                     mode4Timers[packageName] = System.currentTimeMillis()
                     Log.d("Mode4Tracker", "Reset timer for ${app.appName} via RESET_PACKAGE intent")
                 }
             }
         }
-        
-        // Ensure wake lock is acquired
+
         if (wakeLock?.isHeld != true) {
             acquireWakeLock()
         }
-        
+
         return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        
-        // Create a restart intent for our service
+
         val restartServiceIntent = Intent(applicationContext, MonitoringService::class.java)
         restartServiceIntent.setPackage(packageName)
-        
-        // Create a pending intent that will restart our service when triggered
+
         val restartServicePendingIntent = PendingIntent.getService(
-            applicationContext, 
-            1, 
-            restartServiceIntent, 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) 
-                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE 
-            else 
+            applicationContext,
+            1,
+            restartServiceIntent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            else
                 PendingIntent.FLAG_ONE_SHOT
         )
-        
-        // Schedule service restart with AlarmManager
+
         val alarmService = applicationContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmService.set(
             AlarmManager.ELAPSED_REALTIME,
             android.os.SystemClock.elapsedRealtime() + 1000,
             restartServicePendingIntent
         )
-        
+
         Log.d("MonitoringService", "Service scheduled for restart after task removed")
     }
 
@@ -471,9 +439,36 @@ class MonitoringService : Service() {
         val sharedPrefs = getSharedPreferences("AppSettings", Context.MODE_PRIVATE)
         val langCode = sharedPrefs.getString("app_lang", "en") ?: "en"
         val locale = Locale(langCode)
+
         val config = Configuration(resources.configuration).apply {
             setLocale(locale)
+            setLayoutDirection(locale)
         }
+
         return createConfigurationContext(config)
+    }
+
+    // Extract the mode type (1, 2, 3, or 4) from any localized mode string
+    private fun getModeType(storedMode: String): Int {
+        return when {
+            // Add patterns for new languages here
+            storedMode.contains("Mode 1") || storedMode.contains("Mod 1")
+                    || storedMode.contains("Modus 1") || storedMode.contains("Modo 1")
+                    || storedMode.contains("Mód 1") /* Add new language patterns */ -> 1
+
+            storedMode.contains("Mode 2") || storedMode.contains("Mod 2")
+                    || storedMode.contains("Modus 2") || storedMode.contains("Modo 2")
+                    || storedMode.contains("Mód 2") /* Add new language patterns */ -> 2
+
+            storedMode.contains("Mode 3") || storedMode.contains("Mod 3")
+                    || storedMode.contains("Modus 3") || storedMode.contains("Modo 3")
+                    || storedMode.contains("Mód 3") /* Add new language patterns */ -> 3
+
+            storedMode.contains("Mode 4") || storedMode.contains("Mod 4")
+                    || storedMode.contains("Modus 4") || storedMode.contains("Modo 4")
+                    || storedMode.contains("Mód 4") /* Add new language patterns */ -> 4
+
+            else -> 1
+        }
     }
 }
