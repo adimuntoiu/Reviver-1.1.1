@@ -15,6 +15,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import android.app.usage.UsageEvents
 import android.content.res.Configuration
+import android.provider.Settings
 import kotlinx.coroutines.*
 import java.util.Locale
 
@@ -95,13 +96,20 @@ class MonitoringService : Service() {
             setReferenceCounted(false)
             acquire(10*60*1000L /*10 minutes*/)
         }
+        Log.d("WakeLock", "Wake lock acquired: ${wakeLock?.isHeld}")
     }
 
     private val monitorTask = object : Runnable {
         override fun run() {
-            checkAndResetDailyLaunchCounts()
-            monitorAppUsage()
-            handler.postDelayed(this, interval)
+            try {
+                Log.d("MonitorTask", "Running monitor task...")
+                checkAndResetDailyLaunchCounts()
+                monitorAppUsage()
+            } catch (e: Exception) {
+                Log.e("MonitorTask", "Error: ${e.message}")
+            } finally {
+                handler.postDelayed(this, interval)
+            }
         }
     }
 
@@ -126,59 +134,57 @@ class MonitoringService : Service() {
 
     private fun monitorAppUsage() {
         loadAppSettings()
-
         val currentPackageName = getLastUsedApp()
+
+        // Debug: Log the detected foreground app
+        Log.d("AppTracker", "Foreground app: $currentPackageName")
 
         if (currentPackageName == null || isHomeOrRecentsScreen(currentPackageName)) {
             if (!appInBackground) {
-                Log.d("Mode4Tracker", "App went to background, setting flag")
+                Log.d("AppTracker", "App went to background")
                 appInBackground = true
 
-                val previousPackage = lastPackageName
-                lastPackageName = ""
-
-                if (previousPackage != null) {
-                    val app = monitoredApps.find { it.packageName == previousPackage }
-                    if (app != null && getModeType(app.mode) == 4) {
-                        mode4Timers[previousPackage] = System.currentTimeMillis()
-                        Log.d("Mode4Tracker", "Reset timer for $previousPackage as it went to background")
+                // Reset timer only for the app that went to background
+                lastPackageName?.let { previousPackage ->
+                    monitoredApps.find { it.packageName == previousPackage }?.let { app ->
+                        if (getModeType(app.mode) == 4) {
+                            mode4Timers[previousPackage] = System.currentTimeMillis()
+                        }
                     }
                 }
+                lastPackageName = null // Clear to detect new app launches
             }
             return
         }
 
+        // App is in foreground
         val app = monitoredApps.find { it.packageName == currentPackageName } ?: return
 
         if (currentPackageName != lastPackageName || appInBackground) {
-            Log.d("AppTracker", "App switch or returning from background: $currentPackageName")
+            Log.d("AppTracker", "New foreground app: ${app.appName} (${app.packageName})")
             lastPackageName = currentPackageName
-            lastPackageStartTime = System.currentTimeMillis()
-
-            if (getModeType(app.mode) == 4) {
-                if (appInBackground) {
-                    mode4Timers[currentPackageName] = System.currentTimeMillis()
-                    Log.d("Mode4Tracker", "Reset timer for $currentPackageName (coming from background)")
-                } else if (!mode4Timers.containsKey(currentPackageName)) {
-                    mode4Timers[currentPackageName] = System.currentTimeMillis()
-                    Log.d("Mode4Tracker", "New timer for $currentPackageName")
-                }
-            }
-
+            lastPackageStartTime = System.currentTimeMillis() // Reset timer here
             appInBackground = false
+
+            // Reset Mode 4 timer
+            if (getModeType(app.mode) == 4) {
+                mode4Timers[currentPackageName] = System.currentTimeMillis()
+            }
         }
 
-        lastForegroundTime = System.currentTimeMillis()
+        // Debug: Log timers
+        Log.d("TimeTracker", "${app.appName} Timer: ${(System.currentTimeMillis() - lastPackageStartTime)/1000}s (Limit: ${app.timeLimit}s)")
 
-        // Use the getModeType function to determine the mode type
         when (getModeType(app.mode)) {
             1 -> handleTimeLimit(app)
             2 -> checkAndUpdateAppLaunches(app)
             3 -> handlePasswordMode(app)
             4 -> handleConstantOverlay(app)
-            else -> handleTimeLimit(app) // Default to time limit if mode is unknown
+            else -> handleTimeLimit(app)
         }
     }
+
+
 
     private fun isHomeOrRecentsScreen(packageName: String): Boolean {
         val systemUiPackages = listOf(
@@ -245,14 +251,16 @@ class MonitoringService : Service() {
         val elapsedTime = (System.currentTimeMillis() - appTimer) / 1000
         Log.d("Mode4Tracker", "App: ${app.appName}, Elapsed: $elapsedTime, Limit: ${app.timeLimit}")
 
-        if (elapsedTime >= app.timeLimit && app.timeLimit > 0) {
+        if (elapsedTime >= app.timeLimit) {
             showOverlay(getString(R.string.time_up_message, app.appName))
         }
     }
 
     private fun handleTimeLimit(app: AppDetails) {
         val elapsedTime = (System.currentTimeMillis() - lastPackageStartTime) / 1000
-        if (elapsedTime >= app.timeLimit && app.timeLimit > 0) {
+        Log.d("TimeLimit", "${app.appName}: Elapsed $elapsedTime / Limit ${app.timeLimit}")
+
+        if (elapsedTime >= app.timeLimit) {
             showOverlay(getString(R.string.time_up_message,app.appName))
             lastPackageStartTime = System.currentTimeMillis()
         }
@@ -263,7 +271,7 @@ class MonitoringService : Service() {
             handleTimeLimit(app)
         } else {
             val elapsedTime = (System.currentTimeMillis() - lastPackageStartTime) / 1000
-            if (elapsedTime >= app.timeLimit && app.timeLimit > 0) {
+            if (elapsedTime >= app.timeLimit) {
                 showOverlay(getString(R.string.password_required_message,app.appName))
                 lastPackageStartTime = System.currentTimeMillis()
             }
@@ -291,6 +299,11 @@ class MonitoringService : Service() {
     }
 
     private fun showOverlay(message: String) {
+        if (!Settings.canDrawOverlays(this)) {
+            Log.e("Overlay", "Overlay permission not granted")
+            return
+        }
+
         val localizedContext = getLocalizedContext()
         val currentApp = monitoredApps.find { it.packageName == lastPackageName }
         if (currentApp != null) {
@@ -307,7 +320,7 @@ class MonitoringService : Service() {
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val endTime = System.currentTimeMillis()
 
-        val startTime = endTime - 1000L * 60 * 60 * 12
+        val startTime = endTime - 1000L * 60 * 1 /// 1 minut pentru verificare
 
         val usageEvents = usm.queryEvents(startTime, endTime)
         val event = UsageEvents.Event()
@@ -320,6 +333,7 @@ class MonitoringService : Service() {
             }
         }
 
+        Log.d("LastUsedApp", "Detected app: $lastPackage")
         return lastPackage
     }
 
@@ -450,25 +464,9 @@ class MonitoringService : Service() {
 
     // Extract the mode type (1, 2, 3, or 4) from any localized mode string
     private fun getModeType(storedMode: String): Int {
-        return when {
-            // Add patterns for new languages here
-            storedMode.contains("Mode 1") || storedMode.contains("Mod 1")
-                    || storedMode.contains("Modus 1") || storedMode.contains("Modo 1")
-                    || storedMode.contains("Mód 1") /* Add new language patterns */ -> 1
-
-            storedMode.contains("Mode 2") || storedMode.contains("Mod 2")
-                    || storedMode.contains("Modus 2") || storedMode.contains("Modo 2")
-                    || storedMode.contains("Mód 2") /* Add new language patterns */ -> 2
-
-            storedMode.contains("Mode 3") || storedMode.contains("Mod 3")
-                    || storedMode.contains("Modus 3") || storedMode.contains("Modo 3")
-                    || storedMode.contains("Mód 3") /* Add new language patterns */ -> 3
-
-            storedMode.contains("Mode 4") || storedMode.contains("Mod 4")
-                    || storedMode.contains("Modus 4") || storedMode.contains("Modo 4")
-                    || storedMode.contains("Mód 4") /* Add new language patterns */ -> 4
-
-            else -> 1
-        }
+        // Regex to find the first number in the mode string (supports all languages)
+        val regex = """(?i).*?(\d+).*""".toRegex()
+        val matchResult = regex.find(storedMode)
+        return matchResult?.groups?.get(1)?.value?.toIntOrNull() ?: 1 // Default to Mode 1
     }
 }
