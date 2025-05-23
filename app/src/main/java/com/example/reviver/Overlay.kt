@@ -54,7 +54,7 @@ class Overlay(private val context: Context) {
             PixelFormat.TRANSLUCENT
         )
 
-        // Set up the message in the TextView
+
         val messageTextView = overlayView!!.findViewById<TextView>(R.id.overlay_message)
         messageTextView.text = message
 

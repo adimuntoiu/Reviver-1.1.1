@@ -202,12 +202,10 @@ class MainActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        // Add buttons to your layout - you'll need to add these to your XML or add them programmatically
-        val saveButton = dialog.findViewById<Button>(R.id.saveButton) // Add this button to your XML
-        val removeButton = dialog.findViewById<Button>(R.id.removeButton) // Add this button to your XML
-        val cancelButton = dialog.findViewById<Button>(R.id.cancelButton) // Add this button to your XML
+        val saveButton = dialog.findViewById<Button>(R.id.saveButton)
+        val removeButton = dialog.findViewById<Button>(R.id.removeButton)
+        val cancelButton = dialog.findViewById<Button>(R.id.cancelButton)
 
-        // Set password text
         yourPasswordView.text = if (!appDetails.password.isNullOrEmpty()) {
             "Current password: ${appDetails.password}"
         } else {
@@ -261,7 +259,7 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(16, 16, 16, 16) // Increased margins
+                setMargins(16, 16, 16, 16)
             }
             setBackgroundResource(R.drawable.app_list_item_background)
             setPadding(24,24,24,24)
@@ -275,7 +273,7 @@ class MainActivity : AppCompatActivity() {
                 setImageDrawable(packageManager.getApplicationIcon(appDetails.packageName))
             } catch (e: PackageManager.NameNotFoundException) {
                 Log.e("MainActivity", "Failed to load icon for ${appDetails.packageName}, using default icon.")
-                setImageResource(R.drawable.ic_notification) // Replace with a default icon
+                setImageResource(R.drawable.ic_notification)
             }
             layoutParams = LayoutParams(120, 120).apply {
                 marginEnd = 16
@@ -288,10 +286,10 @@ class MainActivity : AppCompatActivity() {
             id = View.generateViewId()
             text = "${appDetails.appName}"
             textSize = 16f
-            maxLines = 2 // Allow text to wrap up to two lines
-            ellipsize = android.text.TextUtils.TruncateAt.END // Add "..." if the text is too long
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
-                marginEnd = 16 // Add margin between text and button
+                marginEnd = 16
                 marginStart = 16
             }
         }
@@ -422,7 +420,7 @@ class MainActivity : AppCompatActivity() {
             val sharedPreferences = getSharedPreferences("ReviverPrefs", Context.MODE_PRIVATE)
             val json = sharedPreferences.getString("selectedApps", null)
 
-            Log.d("LoadDebug", "Loaded JSON: ${json?.take(100)}...") // Log first 100 chars
+            Log.d("LoadDebug", "Loaded JSON: ${json?.take(100)}...")
 
             json?.let {
                 JSONArray(it).let { jsonArray ->
@@ -542,7 +540,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadAndDisplaySelectedApps() {
         loadSelectedApps()
-        appListContainer.removeAllViews() // Clear existing views
+        appListContainer.removeAllViews()
         for (app in selectedApps) {
             addAppToMainLayout(app)
         }

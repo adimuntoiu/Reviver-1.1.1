@@ -136,7 +136,7 @@ class MonitoringService : Service() {
         loadAppSettings()
         val currentPackageName = getLastUsedApp()
 
-        // Debug: Log the detected foreground app
+
         Log.d("AppTracker", "Foreground app: $currentPackageName")
 
         if (currentPackageName == null || isHomeOrRecentsScreen(currentPackageName)) {
@@ -144,7 +144,7 @@ class MonitoringService : Service() {
                 Log.d("AppTracker", "App went to background")
                 appInBackground = true
 
-                // Reset timer only for the app that went to background
+
                 lastPackageName?.let { previousPackage ->
                     monitoredApps.find { it.packageName == previousPackage }?.let { app ->
                         if (getModeType(app.mode) == 4) {
@@ -152,27 +152,25 @@ class MonitoringService : Service() {
                         }
                     }
                 }
-                lastPackageName = null // Clear to detect new app launches
+                lastPackageName = null
             }
             return
         }
-
-        // App is in foreground
         val app = monitoredApps.find { it.packageName == currentPackageName } ?: return
 
         if (currentPackageName != lastPackageName || appInBackground) {
             Log.d("AppTracker", "New foreground app: ${app.appName} (${app.packageName})")
             lastPackageName = currentPackageName
-            lastPackageStartTime = System.currentTimeMillis() // Reset timer here
+            lastPackageStartTime = System.currentTimeMillis()
             appInBackground = false
 
-            // Reset Mode 4 timer
+
             if (getModeType(app.mode) == 4) {
                 mode4Timers[currentPackageName] = System.currentTimeMillis()
             }
         }
 
-        // Debug: Log timers
+
         Log.d("TimeTracker", "${app.appName} Timer: ${(System.currentTimeMillis() - lastPackageStartTime)/1000}s (Limit: ${app.timeLimit}s)")
 
         when (getModeType(app.mode)) {
@@ -462,11 +460,9 @@ class MonitoringService : Service() {
         return createConfigurationContext(config)
     }
 
-    // Extract the mode type (1, 2, 3, or 4) from any localized mode string
     private fun getModeType(storedMode: String): Int {
-        // Regex to find the first number in the mode string (supports all languages)
         val regex = """(?i).*?(\d+).*""".toRegex()
         val matchResult = regex.find(storedMode)
-        return matchResult?.groups?.get(1)?.value?.toIntOrNull() ?: 1 // Default to Mode 1
+        return matchResult?.groups?.get(1)?.value?.toIntOrNull() ?: 1
     }
 }
